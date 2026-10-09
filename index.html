@@ -403,4 +403,228 @@
 /* ============================================================
    PLACEHOLDER FOR PART 2 — leave this line exactly as-is.
    ============================================================ */
-// PART2
+// ============================================================
+// CELEBRITY DATABASE (300+ names, weighted for hard seeds)
+// ============================================================
+const CELEBRITY_DB = [
+  // Easy tier — common first letters
+  "Tom Hanks", "Harrison Ford", "Brad Pitt", "Angelina Jolie", "Jennifer Aniston",
+  "Julia Roberts", "Matt Damon", "Morgan Freeman", "Meryl Streep", "Robert Downey Jr",
+  "Scarlett Johansson", "Will Smith", "Denzel Washington", "Leonardo DiCaprio",
+  "George Clooney", "Keanu Reeves", "Ryan Reynolds", "Emma Stone", "Emma Watson",
+  "Anne Hathaway", "Ben Affleck", "Christian Bale", "Chris Evans", "Chris Hemsworth",
+  "Paul Rudd", "Pedro Pascal", "Natalie Portman", "Margot Robbie", "Nicole Kidman",
+  "Sandra Bullock", "Cate Blanchett", "Tom Cruise", "Tom Holland", "Timothee Chalamet",
+  "Kevin Costner", "Michael Caine", "Jeff Bridges", "Hugh Jackman", "Hugh Grant",
+  "Bruce Willis", "Danny DeVito", "Eddie Murphy", "Jim Carrey", "Robin Williams",
+  "Adam Sandler", "Drew Barrymore", "Cameron Diaz", "Kate Winslet", "Charlize Theron",
+  "Helena Bonham Carter", "Emily Blunt", "Rachel McAdams", "Reese Witherspoon",
+  "Jennifer Lawrence", "Jessica Chastain", "Amy Adams", "Joaquin Phoenix",
+  "Anthony Hopkins", "Gary Oldman", "Samuel L Jackson", "Ian McKellen",
+  "Patrick Stewart", "Pierce Brosnan", "Sean Connery", "Roger Moore",
+  "Daniel Craig", "Idris Elba", "Benedict Cumberbatch", "Tom Hardy",
+  "Colin Firth", "Ralph Fiennes", "Jude Law", "Orlando Bloom",
+  "Johnny Depp", "Al Pacino", "Robert De Niro", "Joe Pesci",
+  "Ray Liotta", "Mark Wahlberg", "Bill Murray", "Chevy Chase",
+  "Steve Martin", "Martin Short", "John Candy", "Rick Moranis",
+  "Dan Aykroyd", "Harold Ramis", "Bill Hader", "Seth Rogen",
+  "Jonah Hill", "Michael Cera", "Jesse Eisenberg", "Andrew Garfield",
+  "Tobey Maguire", "Zac Efron", "Channing Tatum", "Ryan Gosling",
+  "Jake Gyllenhaal", "Ethan Hawke", "Matthew McConaughey", "Woody Harrelson",
+  "Vince Vaughn", "Owen Wilson", "Ben Stiller", "Jack Black",
+  "Will Ferrell", "Steve Carell", "Paul Walker", "Vin Diesel",
+  // Medium tier
+  "Bruno Mars", "Beyonce Knowles", "Taylor Swift", "Selena Gomez",
+  "Ariana Grande", "Miley Cyrus", "Demi Lovato", "Justin Bieber",
+  "Shawn Mendes", "Ed Sheeran", "Sam Smith", "Harry Styles",
+  "Zayn Malik", "Niall Horan", "Louis Tomlinson", "Liam Payne",
+  "Nick Jonas", "Joe Jonas", "Kevin Jonas", "Justin Timberlake",
+  "Pharrell Williams", "John Legend", "Bruno Major", "The Weeknd",
+  "Drake Graham", "Kanye West", "Kendrick Lamar", "Travis Scott",
+  "Post Malone", "Lil Wayne", "Jay Z", "Eminem Mathers",
+  "Snoop Dogg", "Dr Dre", "Ice Cube", "50 Cent",
+  "Tupac Shakur", "Notorious BIG", "Cardi B", "Nicki Minaj",
+  "Megan Thee Stallion", "Doja Cat", "Lizzo", "Dua Lipa",
+  "Katy Perry", "Lady Gaga", "Rihanna Fenty", "Pink",
+  "Christina Aguilera", "Mariah Carey", "Celine Dion", "Whitney Houston",
+  "Aretha Franklin", "Diana Ross", "Tina Turner", "Cher",
+  "Madonna Ciccone", "Janet Jackson", "Michael Jackson", "Prince Nelson",
+  "Elton John", "Billy Joel", "Bruce Springsteen", "Bob Dylan",
+  "Paul McCartney", "John Lennon", "Mick Jagger", "Keith Richards",
+  "David Bowie", "Freddie Mercury", "Bono Hewson", "Sting",
+  // Sports
+  "Michael Jordan", "LeBron James", "Kobe Bryant", "Shaquille ONeal",
+  "Stephen Curry", "Kevin Durant", "Magic Johnson", "Larry Bird",
+  "Kareem Abdul-Jabbar", "Bill Russell", "Wilt Chamberlain", "Tim Duncan",
+  "Lionel Messi", "Cristiano Ronaldo", "Neymar Silva", "Kylian Mbappe",
+  "David Beckham", "Zinedine Zidane", "Ronaldinho", "Pele",
+  "Diego Maradona", "Mohamed Salah", "Sadio Mane", "Virgil van Dijk",
+  "Tom Brady", "Peyton Manning", "Aaron Rodgers", "Patrick Mahomes",
+  "Joe Montana", "Jerry Rice", "Barry Sanders", "Emmitt Smith",
+  "Serena Williams", "Venus Williams", "Roger Federer", "Rafael Nadal",
+  "Novak Djokovic", "Naomi Osaka", "Coco Gauff", "Simone Biles",
+  "Michael Phelps", "Usain Bolt", "Carl Lewis", "Jesse Owens",
+  "Muhammad Ali", "Mike Tyson", "Floyd Mayweather", "Manny Pacquiao",
+  "Conor McGregor", "Ronda Rousey", "Tiger Woods", "Jack Nicklaus",
+  // Historical / cultural
+  "Albert Einstein", "Isaac Newton", "Charles Darwin", "Marie Curie",
+  "Nikola Tesla", "Thomas Edison", "Alexander Graham Bell", "Benjamin Franklin",
+  "George Washington", "Abraham Lincoln", "Thomas Jefferson", "John Kennedy",
+  "Martin Luther King", "Malcolm X", "Nelson Mandela", "Mahatma Gandhi",
+  "Winston Churchill", "Franklin Roosevelt", "Theodore Roosevelt", "Ronald Reagan",
+  "Barack Obama", "Michelle Obama", "Hillary Clinton", "Bill Clinton",
+  "Oprah Winfrey", "Ellen DeGeneres", "David Letterman", "Conan OBrien",
+  "Jimmy Fallon", "Jimmy Kimmel", "Stephen Colbert", "Trevor Noah",
+  // Hard-tier endings (X, V, U, Q, Z)
+  "Jamie Foxx", "Xavier Dolan", "Xzibit", "Vincent van Gogh",
+  "Viola Davis", "Viggo Mortensen", "Val Kilmer", "Vince Gilligan",
+  "Uma Thurman", "Usher Raymond", "Ursula Andress", "Ulrich Muehe",
+  "Quentin Tarantino", "Quincy Jones", "Queen Latifah", "Quinn Shephard",
+  "Zendaya Coleman", "Zoe Saldana", "Zach Galifianakis", "Zooey Deschanel",
+  "Kevin Hart", "Kris Jenner", "Kylie Jenner", "Kendall Jenner",
+  "Kevin Bacon", "Kurt Russell", "Keira Knightley", "Kate Beckinsale",
+  // Additional coverage
+  "Adam Driver", "Alan Rickman", "Alec Baldwin", "Alfred Hitchcock",
+  "Audrey Hepburn", "Ava Gardner", "Bette Davis", "Bing Crosby",
+  "Bob Hope", "Burt Reynolds", "Cary Grant", "Clark Gable",
+  "Clint Eastwood", "Doris Day", "Elizabeth Taylor", "Elvis Presley",
+  "Frank Sinatra", "Fred Astaire", "Gene Kelly", "Grace Kelly",
+  "Gregory Peck", "Humphrey Bogart", "Ingrid Bergman", "Jack Nicholson",
+  "James Dean", "James Stewart", "Jane Fonda", "Judy Garland",
+  "Katharine Hepburn", "Lauren Bacall", "Marilyn Monroe", "Marlon Brando",
+  "Orson Welles", "Paul Newman", "Rita Hayworth", "Robert Mitchum",
+  "Sidney Poitier", "Sophia Loren", "Steve McQueen", "Sylvester Stallone",
+  "Arnold Schwarzenegger", "Jean-Claude Van Damme", "Jackie Chan", "Jet Li",
+  "Bruce Lee", "Chuck Norris", "Dolph Lundgren", "Jean Reno",
+  "Penelope Cruz", "Salma Hayek", "Javier Bardem", "Antonio Banderas",
+  "Gael Garcia Bernal", "Diego Luna", "Sofia Vergara", "Eva Longoria",
+  "Jennifer Lopez", "Marc Anthony", "Ricky Martin", "Enrique Iglesias",
+  "Shakira Mebarak", "Thalia", "Paulina Rubio", "Gloria Estefan"
+];
+
+// ============================================================
+// APP STATE
+// ============================================================
+let currentMode = 'online';
+let myPeer = null;
+let myPeerId = null;
+let roomCode = null;
+let isHost = false;
+let hostConn = null;
+let hostPeerReady = false;
+
+let players = [];
+let activeTurnIndex = 0;
+let chainHistory = [];
+let targetLetter = '';
+let seedName = '';
+let timerInterval = null;
+let timeLeft = 20;
+let timerDuration = 5;
+let startingPoints = 5;
+let soundEnabled = true;
+let offlineCount = 2;
+let aiThinking = false;
+let gameActive = false;
+
+// Challenge state
+let challengeTimeoutId = null;
+let challengeActiveFor = null; // index in chainHistory
+let challengeResolved = false;
+let consecutivePasses = 0;
+let wikipediaAbortController = null;
+
+// ============================================================
+// UTILITIES
+// ============================================================
+const $ = id => document.getElementById(id);
+
+function cleanJoinCode(el) {
+  el.value = el.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 8);
+}
+
+function isInAppBrowser() {
+  const ua = navigator.userAgent || navigator.vendor || window.opera;
+  return (/FBAN|FBAV|Instagram|MicroMessenger|Line|Snapchat|TikTok|Twitter|LinkedIn|WhatsApp/i.test(ua));
+}
+
+function generateRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 8; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+function normalizeName(str) {
+  return (str || '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function parseName(fullName) {
+  const parts = (fullName || '').trim().split(/\s+/);
+  const firstName = parts[0] || '';
+  const lastName = parts.length > 1 ? parts[parts.length - 1] : parts[0] || '';
+  return {
+    firstName,
+    lastName,
+    firstLetter: firstName.charAt(0).toUpperCase(),
+    lastLetter: lastName.charAt(0).toUpperCase()
+  };
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str == null ? '' : String(str);
+  return div.innerHTML;
+}
+
+// ============================================================
+// SEED GENERATION (mixed difficulty)
+// ============================================================
+const HARD_SEEDS = [
+  "Jamie Foxx", "Xavier Dolan", "Xzibit",
+  "Viola Davis", "Viggo Mortensen", "Vincent van Gogh", "Vince Gilligan",
+  "Uma Thurman", "Usher Raymond",
+  "Quentin Tarantino", "Quincy Jones", "Queen Latifah",
+  "Zendaya Coleman", "Zoe Saldana", "Zooey Deschanel"
+];
+
+const MEDIUM_SEEDS = [
+  "Bruno Mars", "Beyonce Knowles", "Taylor Swift", "Selena Gomez",
+  "Katy Perry", "Lady Gaga", "Rihanna Fenty", "Kanye West",
+  "Kevin Hart", "Kris Jenner", "Michael Jordan", "LeBron James",
+  "Serena Williams", "Tiger Woods", "Oprah Winfrey", "Barack Obama"
+];
+
+function pickSeed() {
+  const roll = Math.random();
+  let pool;
+  if (roll < 0.2) pool = HARD_SEEDS;
+  else if (roll < 0.6) pool = MEDIUM_SEEDS;
+  else pool = CELEBRITY_DB;
+
+  // Shuffle and find a seed with at least 1 valid next name
+  const shuffled = pool.slice().sort(() => Math.random() - 0.5);
+  for (const candidate of shuffled) {
+    const parsed = parseName(candidate);
+    const requiredLetter = parsed.lastLetter;
+    // Check DB has at least one other celebrity starting with that letter
+    const hasNext = CELEBRITY_DB.some(c => {
+      if (normalizeName(c) === normalizeName(candidate)) return false;
+      return c.charAt(0).toUpperCase() === requiredLetter;
+    });
+    if (hasNext) return candidate;
+  }
+  // Fallback — just pick the first
+  return pool[0];
+}
+
+function applyNewSeed() {
+  seedName = pickSeed();
+  const parsed = parseName(seedName);
+  targetLetter = parsed.lastLetter;
+  chainHistory = [{ celeb: seedName, playerName: '🤖 Computer', isSeed: true }];
+}
+
+// PART3
