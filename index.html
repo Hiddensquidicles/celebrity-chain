@@ -627,4 +627,518 @@ function applyNewSeed() {
   chainHistory = [{ celeb: seedName, playerName: '🤖 Computer', isSeed: true }];
 }
 
-// PART3
+// ============================================================
+// INITIALIZATION
+// ============================================================
+window.onload = () => {
+  if (isInAppBrowser()) {
+    $('inAppBrowserBanner').classList.remove('hidden');
+  }
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const codeParam = urlParams.get('room');
+  if (codeParam) {
+    const cleaned = codeParam.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 8);
+    if (cleaned.length === 8) {
+      $('joinCode').value = cleaned;
+      switchOnlineTab('join');
+    }
+  }
+
+  $('celebInput').addEventListener('input', handleSuggestions);
+  $('celebInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); submitCelebrity(); }
+  });
+
+  window.addEventListener('beforeunload', () => {
+    if (myPeer) { try { myPeer.destroy(); } catch(e){} }
+  });
+};
+
+// ============================================================
+// AUDIO
+// ============================================================
+function toggleAudio() {
+  soundEnabled = !soundEnabled;
+  $('audioBtn').innerHTML = soundEnabled ?
+    '<i class="fa-solid fa-volume-high text-amber-400"></i>' :
+    '<i class="fa-solid fa-volume-xmark text-slate-500"></i>';
+}
+
+function playBeep(freq = 440, type = 'sine', duration = 0.1) {
+  if (!soundEnabled) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+    osc.stop(ctx.currentTime + duration);
+  } catch(e) {}
+}
+
+function copyBrowserUrl() {
+  const url = window.location.href;
+  try { navigator.clipboard.writeText(url); }
+  catch(e) {
+    const input = document.createElement('input');
+    input.value = url;
+    document.body.appendChild(input);
+    input.select();
+    document.execCommand('copy');
+    document.body.removeChild(input);
+  }
+  alert("Page link copied! Paste into Safari or Chrome.");
+}
+
+// ============================================================
+// MODE SELECTION
+// ============================================================
+function setMode(mode) {
+  currentMode = mode;
+  ['btnOnline', 'btnPass', 'btnAi'].forEach(id => {
+    $(id).className = "p-4 rounded-xl border-2 border-slate-700/80 bg-slate-800/40 text-left transition hover:border-slate-600";
+  });
+
+  if (mode === 'online') {
+    $('btnOnline').className = "p-4 rounded-xl border-2 border-brand-500 bg-brand-900/30 text-left transition";
+    $('onlinePanel').classList.remove('hidden');
+    $('offlinePanel').classList.add('hidden');
+  } else {
+    if (mode === 'pass_play') $('btnPass').className = "p-4 rounded-xl border-2 border-emerald-500 bg-emerald-900/30 text-left transition";
+    if (mode === 'vs_ai') $('btnAi').className = "p-4 rounded-xl border-2 border-amber-500 bg-amber-900/30 text-left transition";
+    $('onlinePanel').classList.add('hidden');
+    $('offlinePanel').classList.remove('hidden');
+    setupOfflinePanel();
+  }
+}
+
+function switchOnlineTab(tab) {
+  if (tab === 'create') {
+    $('tabCreate').className = "flex-1 py-2 text-sm font-bold rounded-lg bg-brand-600 text-white transition";
+    $('tabJoin').className = "flex-1 py-2 text-sm font-bold rounded-lg text-slate-400 hover:text-white transition";
+    $('createBox').classList.remove('hidden');
+    $('joinBox').classList.add('hidden');
+  } else {
+    $('tabJoin').className = "flex-1 py-2 text-sm font-bold rounded-lg bg-brand-600 text-white transition";
+    $('tabCreate').className = "flex-1 py-2 text-sm font-bold rounded-lg text-slate-400 hover:text-white transition";
+    $('joinBox').classList.remove('hidden');
+    $('createBox').classList.add('hidden');
+  }
+}
+
+// ============================================================
+// PEER SETUP
+// ============================================================
+function initPeerJS(customId, onOpen, onError) {
+  updateStatus('connecting', 'Connecting...');
+  if (myPeer) { try { myPeer.destroy(); } catch(e){} myPeer = null; }
+
+  myPeer = new Peer(customId, {
+    debug: 1,
+    config: {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun.services.mozilla.com' }
+      ]
+    }
+  });
+
+  myPeer.on('open', id => {
+    myPeerId = id;
+    updateStatus('connected', 'Online');
+    if (onOpen) onOpen(id);
+  });
+
+  myPeer.on('error', err => {
+    console.error("PeerJS Error:", err);
+    updateStatus('error', 'Network Error');
+    if (onError) onError(err);
+  });
+
+  myPeer.on('disconnected', () => {
+    updateStatus('connecting', 'Reconnecting...');
+    try { myPeer.reconnect(); } catch(e){}
+  });
+}
+
+function updateStatus(state, msg) {
+  $('statusText').innerText = msg;
+  const dot = $('statusDot');
+  if (state === 'connected') dot.className = "w-2 h-2 rounded-full bg-emerald-400 inline-block";
+  else if (state === 'connecting') dot.className = "w-2 h-2 rounded-full bg-amber-400 animate-ping inline-block";
+  else dot.className = "w-2 h-2 rounded-full bg-rose-500 inline-block";
+}
+
+// ============================================================
+// HOST: CREATE ROOM
+// ============================================================
+function createRoom() {
+  const hostName = $('hostName').value.trim() || "Host";
+  roomCode = generateRoomCode();
+  hostPeerReady = false;
+
+  $('lobbyCode').innerText = roomCode;
+  $('createBox').classList.add('hidden');
+  $('lobbyBox').classList.remove('hidden');
+  $('startHostBtn').classList.remove('hidden');
+  $('waitHostText').classList.add('hidden');
+  $('copyInviteBtn').disabled = true;
+  $('qrBtn').disabled = true;
+  $('createRoomBtn').disabled = true;
+
+  isHost = true;
+  players = [{ id: 'host_pending', name: hostName, score: startingPoints, isHost: true }];
+  updateLobbyList();
+
+  const fullPeerId = 'cchain8_' + roomCode;
+
+  initPeerJS(fullPeerId,
+    id => {
+      hostPeerReady = true;
+      players[0].id = id;
+      $('copyInviteBtn').disabled = false;
+      $('qrBtn').disabled = false;
+      $('createRoomBtn').disabled = false;
+      updateLobbyList();
+    },
+    err => {
+      if (err.type === 'unavailable-id') {
+        console.warn("Room code collision, regenerating...");
+        $('createRoomBtn').disabled = false;
+        setTimeout(() => createRoom(), 300);
+        return;
+      }
+      alert("Failed to create room. Please refresh. Error: " + (err.type || err.message || 'unknown'));
+      resetToSetup();
+    }
+  );
+
+  myPeer.on('connection', conn => {
+    conn.on('open', () => {
+      conn.on('data', data => handleHostIncomingData(data, conn));
+    });
+    conn.on('close', () => {
+      players = players.filter(p => p.conn !== conn);
+      broadcastState();
+      updateLobbyList();
+    });
+    conn.on('error', err => console.error('Connection error:', err));
+  });
+}
+
+// ============================================================
+// GUEST: JOIN ROOM
+// ============================================================
+function joinRoom() {
+  const codeInput = $('joinCode').value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  const guestName = $('guestName').value.trim() || "Guest";
+  const logBox = $('joinLog');
+
+  if (codeInput.length !== 8) {
+    alert("Please enter a valid 8-character Room Code.");
+    return;
+  }
+
+  roomCode = codeInput;
+  isHost = false;
+
+  logBox.classList.remove('hidden');
+  logBox.className = "text-xs text-center text-amber-400 font-bold animate-pulse";
+  logBox.innerText = "Connecting to network...";
+  $('joinRoomBtn').disabled = true;
+
+  initPeerJS(null,
+    id => {
+      logBox.innerText = `Searching for room '${roomCode}'...`;
+      const hostPeerId = 'cchain8_' + roomCode;
+      hostConn = myPeer.connect(hostPeerId, { reliable: true });
+
+      let connectTimeout = setTimeout(() => {
+        logBox.className = "text-xs text-center text-rose-400 font-bold";
+        logBox.innerText = "⚠️ Host not found. Verify the code and that host is on the lobby screen.";
+        $('joinRoomBtn').disabled = false;
+        if (hostConn) { try { hostConn.close(); } catch(e){} }
+      }, 12000);
+
+      hostConn.on('open', () => {
+        clearTimeout(connectTimeout);
+        logBox.className = "text-xs text-center text-emerald-400 font-bold";
+        logBox.innerText = "Connected! Joining room...";
+
+        hostConn.send({ type: 'JOIN', name: guestName, id: id });
+        $('joinBox').classList.add('hidden');
+        $('lobbyBox').classList.remove('hidden');
+        $('lobbyCode').innerText = roomCode;
+        $('startHostBtn').classList.add('hidden');
+        $('waitHostText').classList.remove('hidden');
+        $('copyInviteBtn').disabled = true;
+        $('qrBtn').disabled = true;
+        $('joinRoomBtn').disabled = false;
+      });
+
+      hostConn.on('data', handleGuestIncomingData);
+
+      hostConn.on('close', () => {
+        clearTimeout(connectTimeout);
+        if (gameActive) alert("Host disconnected. Returning to setup.");
+        resetToSetup();
+      });
+
+      hostConn.on('error', err => {
+        clearTimeout(connectTimeout);
+        console.error("Host conn error:", err);
+        if (err.type === 'peer-unavailable') {
+          logBox.innerText = "Room not found. Check the code and host's connection.";
+        } else {
+          logBox.innerText = `Connection error: ${err.type || 'unknown'}.`;
+        }
+        logBox.className = "text-xs text-center text-rose-400 font-bold";
+        $('joinRoomBtn').disabled = false;
+      });
+    },
+    err => {
+      logBox.className = "text-xs text-center text-rose-400 font-bold";
+      logBox.innerText = "Network initialization failed. Try refreshing.";
+      $('joinRoomBtn').disabled = false;
+    }
+  );
+}
+
+// ============================================================
+// NETWORK MESSAGE HANDLERS
+// ============================================================
+function handleHostIncomingData(data, conn) {
+  if (data.type === 'JOIN') {
+    if (players.some(p => p.id === data.id)) return;
+    const newPlayer = { id: data.id, name: data.name, score: startingPoints, conn: conn };
+    players.push(newPlayer);
+    updateLobbyList();
+    broadcastState();
+  } else if (data.type === 'ACTION_SUBMIT') {
+    const curPlayer = players[activeTurnIndex];
+    if (!curPlayer || curPlayer.id !== data.playerId) return;
+    processSubmission(data.celeb, data.playerId);
+  } else if (data.type === 'ACTION_PASS') {
+    const curPlayer = players[activeTurnIndex];
+    if (!curPlayer || curPlayer.id !== data.playerId) return;
+    handlePass();
+  } else if (data.type === 'ACTION_CHALLENGE') {
+    if (challengeResolved || challengeActiveFor === null) return;
+    if (data.playerId === players[activeTurnIndex]?.id) return; // can't challenge self
+    runChallenge(data.playerId);
+  }
+}
+
+function handleGuestIncomingData(data) {
+  if (data.type === 'LOBBY_STATE') {
+    players = data.players;
+    updateLobbyList();
+  } else if (data.type === 'GAME_START') {
+    players = data.players;
+    timerDuration = data.timerDuration;
+    startingPoints = data.startingPoints;
+    startGameUI();
+  } else if (data.type === 'GAME_SYNC') {
+    players = data.players;
+    chainHistory = data.chainHistory;
+    targetLetter = data.targetLetter;
+    activeTurnIndex = data.activeTurnIndex;
+    timeLeft = data.timeLeft;
+    seedName = data.seedName;
+    challengeActiveFor = data.challengeActiveFor;
+    challengeResolved = data.challengeResolved;
+    consecutivePasses = data.consecutivePasses;
+    renderGameState();
+  } else if (data.type === 'CHALLENGE_START') {
+    showChallengeModal(data.challenger, data.accused, data.celeb);
+  } else if (data.type === 'CHALLENGE_RESULT') {
+    showChallengeResult(data.result, data.celeb, data.verifiedName, data.challengerName);
+  } else if (data.type === 'GAME_OVER') {
+    showGameOver(data);
+  } else if (data.type === 'KICKED') {
+    alert(data.reason || "Removed from the room.");
+    resetToSetup();
+  }
+}
+
+function serializePlayers(list) {
+  return list.map(p => ({ id: p.id, name: p.name, score: p.score, isHost: !!p.isHost }));
+}
+
+function broadcastState() {
+  if (!isHost || !myPeer) return;
+  const payload = {
+    type: 'GAME_SYNC',
+    players: serializePlayers(players),
+    chainHistory: chainHistory,
+    targetLetter: targetLetter,
+    activeTurnIndex: activeTurnIndex,
+    timeLeft: timeLeft,
+    seedName: seedName,
+    challengeActiveFor: challengeActiveFor,
+    challengeResolved: challengeResolved,
+    consecutivePasses: consecutivePasses
+  };
+  players.forEach(p => {
+    if (p.conn && p.conn.open) {
+      try { p.conn.send(payload); } catch(e){ console.error(e); }
+    }
+  });
+  renderGameState();
+}
+
+function broadcastLobbyState() {
+  if (!isHost || !myPeer) return;
+  const payload = { type: 'LOBBY_STATE', players: serializePlayers(players) };
+  players.forEach(p => {
+    if (p.conn && p.conn.open) {
+      try { p.conn.send(payload); } catch(e){}
+    }
+  });
+}
+
+function updateLobbyList() {
+  $('playerCount').innerText = players.length;
+  $('lobbyList').innerHTML = players.map(p => `
+    <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-full bg-brand-500/20 text-brand-400 font-bold flex items-center justify-center text-sm">
+          ${escapeHtml(p.name.charAt(0).toUpperCase())}
+        </div>
+        <span class="font-bold text-slate-200 text-sm">${escapeHtml(p.name)} ${p.id === myPeerId ? '<span class="text-xs text-amber-400">(You)</span>' : ''}</span>
+      </div>
+      ${p.isHost ? '<span class="text-[10px] bg-amber-500/20 text-amber-300 font-extrabold px-2 py-0.5 rounded-full border border-amber-500/30">HOST</span>' : ''}
+    </div>
+  `).join('');
+  broadcastLobbyState();
+}
+
+// ============================================================
+// LOBBY ACTIONS
+// ============================================================
+function copyInviteLink() {
+  if (!roomCode) return;
+  const url = `${window.location.origin}${window.location.pathname}?room=${roomCode}`;
+  try {
+    navigator.clipboard.writeText(url);
+    alert("Room invite link copied!");
+  } catch(e) {
+    const input = document.createElement('input');
+    input.value = url;
+    document.body.appendChild(input);
+    input.select();
+    document.execCommand('copy');
+    document.body.removeChild(input);
+    alert("Room invite link copied!");
+  }
+}
+
+function showQRCode() {
+  if (!roomCode) return;
+  const url = `${window.location.origin}${window.location.pathname}?room=${roomCode}`;
+  $('qrcode').innerHTML = '';
+  new QRCode($('qrcode'), { text: url, width: 160, height: 160 });
+  $('qrRoomCodeText').innerText = `ROOM CODE: ${roomCode}`;
+  showModal('qrModal');
+}
+
+// ============================================================
+// OFFLINE PANEL
+// ============================================================
+function setupOfflinePanel() {
+  setOfflineCount(offlineCount);
+}
+
+function setOfflineCount(cnt) {
+  offlineCount = cnt;
+  document.querySelectorAll('.offCountBtn').forEach(b => {
+    const btnCount = parseInt(b.dataset.count);
+    if (btnCount === cnt) {
+      b.className = "offCountBtn flex-1 py-2.5 rounded-xl border border-brand-500 bg-brand-900/40 text-white font-bold transition";
+    } else {
+      b.className = "offCountBtn flex-1 py-2.5 rounded-xl border border-slate-700 bg-slate-900 text-slate-400 font-bold transition";
+    }
+  });
+
+  const container = $('offlineNamesContainer');
+  let html = '';
+  for (let i = 1; i <= cnt; i++) {
+    const isBot = currentMode === 'vs_ai' && i > 1;
+    const defaultVal = isBot ? `Bot ${i - 1}` : `Player ${i}`;
+    html += `
+      <div>
+        <label class="block text-[11px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">Player ${i} Name</label>
+        <input type="text" id="offName_${i}" value="${defaultVal}" maxlength="15" class="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white font-bold text-sm focus:outline-none focus:border-brand-500" ${isBot ? 'disabled' : ''}>
+      </div>
+    `;
+  }
+  container.innerHTML = html;
+}
+
+function startOfflineMatch() {
+  players = [];
+  for (let i = 1; i <= offlineCount; i++) {
+    const name = ($(`offName_${i}`)?.value.trim()) || `Player ${i}`;
+    const isBot = (currentMode === 'vs_ai' && i > 1);
+    players.push({ id: 'p_' + i, name: name, score: startingPoints, isBot: isBot });
+  }
+  timerDuration = parseInt($('timerSelect').value);
+  startingPoints = parseInt($('startPointsSelect').value);
+  players.forEach(p => p.score = startingPoints);
+  startGameUI();
+}
+
+// ============================================================
+// GAME START
+// ============================================================
+function hostStartMatch() {
+  if (!isHost || !hostPeerReady) {
+    alert("Room isn't ready yet. Please wait a moment.");
+    return;
+  }
+  timerDuration = parseInt($('timerSelect').value);
+  startingPoints = parseInt($('startPointsSelect').value);
+  players.forEach(p => p.score = startingPoints);
+
+  const payload = {
+    type: 'GAME_START',
+    players: serializePlayers(players),
+    timerDuration: timerDuration,
+    startingPoints: startingPoints
+  };
+  players.forEach(p => {
+    if (p.conn && p.conn.open) {
+      try { p.conn.send(payload); } catch(e){}
+    }
+  });
+  startGameUI();
+}
+
+function startGameUI() {
+  $('setupCard').classList.add('hidden');
+  $('gameScreen').classList.remove('hidden');
+  $('leaveBtn').classList.remove('hidden');
+
+  activeTurnIndex = 0;
+  chainHistory = [];
+  consecutivePasses = 0;
+  challengeActiveFor = null;
+  challengeResolved = false;
+  aiThinking = false;
+  gameActive = true;
+  applyNewSeed();
+
+  renderGameState();
+  resetTimer();
+
+  if (isHost && currentMode === 'online') broadcastState();
+}
+
+// PART4
