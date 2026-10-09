@@ -1141,4 +1141,733 @@ function startGameUI() {
   if (isHost && currentMode === 'online') broadcastState();
 }
 
-// PART4
+// ============================================================
+// RENDER
+// ============================================================
+function renderGameState() {
+  const curPlayer = players[activeTurnIndex];
+  if (!curPlayer) return;
+
+  // Target letter
+  if (!targetLetter) {
+    $('targetLetterDisplay').innerText = "...";
+    $('targetLetterDisplay').className = "text-2xl font-black text-slate-400 font-display";
+  } else {
+    $('targetLetterDisplay').innerText = `STARTS WITH '${targetLetter}'`;
+    $('targetLetterDisplay').className = "text-2xl font-black text-amber-300 font-display";
+  }
+
+  // Timer
+  $('timerText').innerText = `${Math.max(0, timeLeft)}s`;
+
+  // Turn notice
+  $('currentTurnName').innerText = curPlayer.name;
+
+  // Determine if this client controls the current turn
+  let isMyTurn = false;
+  if (currentMode !== 'online') {
+    isMyTurn = !curPlayer.isBot;
+  } else {
+    isMyTurn = (curPlayer.id === myPeerId);
+  }
+
+  const busy = (challengeActiveFor !== null && !challengeResolved);
+  $('celebInput').disabled = !isMyTurn || busy;
+  $('submitBtn').disabled = !isMyTurn || busy;
+  $('passBtn').disabled = !isMyTurn || busy;
+
+  if (isMyTurn && !busy) {
+    $('turnCard').className = "glass-card rounded-2xl p-6 text-center border-2 border-amber-400 glow-active relative overflow-hidden";
+  } else {
+    $('turnCard').className = "glass-card rounded-2xl p-6 text-center border-2 border-slate-700/60 relative overflow-hidden opacity-90";
+  }
+
+  // Chain ticker
+  if (chainHistory.length === 0) {
+    $('chainTicker').innerHTML = `
+      <div class="px-4 py-2 rounded-xl bg-slate-900/60 border border-dashed border-slate-700 text-slate-500 text-sm font-semibold whitespace-nowrap">
+        Match is starting...
+      </div>`;
+  } else {
+    $('chainTicker').innerHTML = chainHistory.map((item, idx) => {
+      const isSeed = item.isSeed;
+      const isCurrent = idx === chainHistory.length - 1;
+      const challenged = (challengeActiveFor === idx && !challengeResolved);
+      const challengedDone = (challengeActiveFor === idx && challengeResolved);
+
+      let border = 'border-amber-500/30';
+      let bg = 'bg-slate-900';
+      if (isSeed) { border = 'border-slate-600'; bg = 'bg-slate-800/60'; }
+      if (challenged) { border = 'border-brand-400'; bg = 'bg-brand-900/40'; }
+      if (challengedDone) { border = 'border-slate-500 opacity-60'; }
+
+      const badge = isSeed ? '<span class="text-[10px] text-slate-400 font-normal block">🤖 Seed</span>' :
+        `<span class="text-[10px] text-slate-400 font-normal block">${escapeHtml(item.playerName)}</span>`;
+
+      const challengeBtn = (isCurrent && isSeed === false && challengeActiveFor === idx && !challengeResolved && currentMode !== 'online') ?
+        '' : '';
+
+      return `
+        <div class="flex items-center gap-2 shrink-0">
+          <div class="px-3 py-1.5 rounded-xl ${bg} border ${border} text-amber-300 text-sm font-extrabold whitespace-nowrap shadow-md relative">
+            ${escapeHtml(item.celeb)}
+            ${badge}
+          </div>
+          ${idx < chainHistory.length - 1 ? '<i class="fa-solid fa-arrow-right text-xs text-slate-600"></i>' : ''}
+        </div>
+      `;
+    }).join('');
+  }
+  $('chainCount').innerText = `${chainHistory.length} Links`;
+
+  // Scoreboard
+  $('scoreboard').innerHTML = players.map((p, idx) => `
+    <div class="p-3 rounded-xl bg-slate-900 border ${idx === activeTurnIndex ? 'border-amber-400 bg-amber-400/5' : 'border-slate-800'} transition">
+      <div class="text-xs font-bold text-slate-400 truncate">${escapeHtml(p.name)}</div>
+      <div class="text-2xl font-black ${p.score < 0 ? 'text-rose-400' : 'text-white'} font-display mt-0.5">${p.score} <span class="text-xs font-normal text-slate-500">pts</span></div>
+    </div>
+  `).join('');
+
+  // Show challenge button on the latest submission during the 3-second window
+  updateChallengeBar();
+
+  // AI turn
+  if (curPlayer.isBot && !busy && (isHost || currentMode !== 'online') && !aiThinking) {
+    aiThinking = true;
+    setTimeout(() => {
+      aiThinking = false;
+      if (players[activeTurnIndex] === curPlayer && gameActive && !busy) {
+        handleAiTurn();
+      }
+    }, 1200);
+  }
+}
+
+function updateChallengeBar() {
+  // Insert or remove a small floating "Challenge!" button under the chain
+  let bar = $('challengeBar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'challengeBar';
+    bar.className = 'hidden';
+    $('chainTicker').parentElement.appendChild(bar);
+  }
+
+  const canChallenge =
+    gameActive &&
+    challengeActiveFor !== null &&
+    !challengeResolved &&
+    players[activeTurnIndex] &&
+    players[activeTurnIndex].id !== myPeerId;
+
+  if (!canChallenge) {
+    bar.classList.add('hidden');
+    bar.innerHTML = '';
+    return;
+  }
+
+  bar.className = 'mt-3 p-3 rounded-xl bg-brand-900/40 border border-brand-500/50 flex items-center justify-between gap-3';
+  bar.innerHTML = `
+    <div class="flex items-center gap-3">
+      <div class="relative w-10 h-10">
+        <svg class="challenge-ring absolute inset-0" viewBox="0 0 48 48" width="40" height="40">
+          <circle cx="24" cy="24" r="22" fill="none" stroke="#334155" stroke-width="3"/>
+          <circle class="progress" cx="24" cy="24" r="22" fill="none" stroke="#3b82f6" stroke-width="3"
+            stroke-dasharray="138" stroke-dashoffset="0" stroke-linecap="round"
+            transform="rotate(-90 24 24)"/>
+        </svg>
+      </div>
+      <div class="text-sm">
+        <div class="font-bold text-brand-300">Challenge this name?</div>
+        <div class="text-xs text-slate-400">If wrong, you lose a point.</div>
+      </div>
+    </div>
+    <button onclick="triggerChallenge()" class="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-black text-sm shadow-lg transition">
+      ⚖️ Challenge
+    </button>
+  `;
+}
+
+// ============================================================
+// AUTOCOMPLETE
+// ============================================================
+function handleSuggestions() {
+  const val = $('celebInput').value.trim().toLowerCase();
+  const box = $('suggestionsBox');
+  if (val.length < 2) {
+    box.classList.add('hidden');
+    return;
+  }
+
+  const matches = CELEBRITY_DB.filter(c => {
+    if (targetLetter && c.charAt(0).toUpperCase() !== targetLetter) return false;
+    if (chainHistory.some(item => normalizeName(item.celeb) === normalizeName(c))) return false;
+    return c.toLowerCase().includes(val);
+  }).slice(0, 5);
+
+  if (matches.length === 0) {
+    box.classList.add('hidden');
+    return;
+  }
+
+  box.innerHTML = matches.map(m => `
+    <div onclick="selectSuggestion('${escapeHtml(m).replace(/'/g, "\\'")}')" class="px-4 py-2 hover:bg-slate-800 text-white font-semibold text-sm cursor-pointer border-b border-slate-800/50 last:border-0">
+      ${escapeHtml(m)}
+    </div>
+  `).join('');
+  box.classList.remove('hidden');
+}
+
+function selectSuggestion(name) {
+  $('celebInput').value = name;
+  $('suggestionsBox').classList.add('hidden');
+}
+
+// ============================================================
+// SUBMISSION
+// ============================================================
+function submitCelebrity() {
+  const val = $('celebInput').value.trim();
+  if (!val) return;
+
+  if (currentMode === 'online' && !isHost) {
+    const curPlayer = players[activeTurnIndex];
+    if (!curPlayer || curPlayer.id !== myPeerId) return;
+    if (hostConn && hostConn.open) {
+      hostConn.send({ type: 'ACTION_SUBMIT', celeb: val, playerId: myPeerId });
+    }
+    $('celebInput').value = '';
+    $('suggestionsBox').classList.add('hidden');
+    return;
+  }
+
+  const curPlayer = players[activeTurnIndex];
+  if (!curPlayer) return;
+  if (currentMode === 'online' && curPlayer.id !== myPeerId) return;
+
+  processSubmission(val, curPlayer.id);
+  $('celebInput').value = '';
+  $('suggestionsBox').classList.add('hidden');
+}
+
+function processSubmission(celebName, playerId) {
+  const curPlayer = players[activeTurnIndex];
+  if (!curPlayer || curPlayer.id !== playerId) return;
+
+  const parsed = parseName(celebName);
+
+  // Wrong letter — no penalty, but reject and let others challenge anyway
+  // Actually per rules: accept it, let players challenge. So we do NOT reject.
+  // But we DO warn the submitter.
+  if (targetLetter && parsed.firstLetter !== targetLetter) {
+    playBeep(200, 'sawtooth', 0.15);
+    // Still accept it — the challenge system will catch it
+  } else {
+    playBeep(600, 'sine', 0.1);
+  }
+
+  // Duplicate check
+  const normalized = normalizeName(celebName);
+  if (chainHistory.some(item => normalizeName(item.celeb) === normalized)) {
+    playBeep(200, 'sawtooth', 0.2);
+    if (currentMode !== 'online' || curPlayer.id === myPeerId) {
+      alert("That celebrity has already been named in this chain!");
+    }
+    return;
+  }
+
+  // Accept submission
+  chainHistory.push({ celeb: celebName.trim().replace(/\s+/g, ' '), playerName: curPlayer.name });
+  consecutivePasses = 0;
+
+  // Open 3-second challenge window
+  challengeActiveFor = chainHistory.length - 1;
+  challengeResolved = false;
+
+  // Sync if host
+  if (isHost && currentMode === 'online') broadcastState();
+
+  // Start the challenge timer (3 seconds)
+  if (challengeTimeoutId) clearTimeout(challengeTimeoutId);
+  challengeTimeoutId = setTimeout(() => {
+    resolveNoChallenge();
+  }, 3000);
+}
+
+function resolveNoChallenge() {
+  challengeActiveFor = null;
+  challengeResolved = false;
+  if (challengeTimeoutId) { clearTimeout(challengeTimeoutId); challengeTimeoutId = null; }
+
+  // Advance to next player
+  activeTurnIndex = (activeTurnIndex + 1) % players.length;
+  resetTimer();
+
+  if (isHost && currentMode === 'online') broadcastState();
+  else renderGameState();
+}
+
+// ============================================================
+// CHALLENGE
+// ============================================================
+function triggerChallenge() {
+  if (currentMode === 'online' && !isHost) {
+    if (hostConn && hostConn.open) {
+      hostConn.send({ type: 'ACTION_CHALLENGE', playerId: myPeerId });
+    }
+    return;
+  }
+  runChallenge(myPeerId);
+}
+
+async function runChallenge(challengerId) {
+  if (challengeActiveFor === null) return;
+  if (challengeResolved) return;
+
+  challengeResolved = true;
+  if (challengeTimeoutId) { clearTimeout(challengeTimeoutId); challengeTimeoutId = null; }
+
+  const entryIndex = challengeActiveFor;
+  const entry = chainHistory[entryIndex];
+  if (!entry) return;
+
+  const challenger = players.find(p => p.id === challengerId);
+  const accused = players.find(p => p.name === entry.playerName);
+
+  if (isHost && currentMode === 'online') {
+    players.forEach(p => {
+      if (p.conn && p.conn.open) {
+        try { p.conn.send({ type: 'CHALLENGE_START', challenger: challenger?.name || '?', accused: entry.playerName, celeb: entry.celeb }); } catch(e){}
+      }
+    });
+  }
+  showChallengeModal(challenger?.name || 'Challenger', entry.playerName, entry.celeb);
+
+  // Pause timer during verification
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+
+  // Verify on Wikipedia
+  const result = await verifyOnWikipedia(entry.celeb);
+
+  // Determine outcome
+  let message, deltas = {};
+
+  if (result.exists) {
+    // Name is REAL — challenger loses 1 point
+    if (challenger) {
+      challenger.score -= 1;
+      deltas[challenger.name] = -1;
+    }
+    message = 'valid';
+  } else {
+    // Name is FAKE — submitter loses 1 point, entry removed, new seed
+    if (accused) {
+      accused.score -= 1;
+      deltas[accused.name] = -1;
+    }
+    message = 'invalid';
+  }
+
+  // Broadcast result
+  if (isHost && currentMode === 'online') {
+    players.forEach(p => {
+      if (p.conn && p.conn.open) {
+        try { p.conn.send({ type: 'CHALLENGE_RESULT', result: message, celeb: entry.celeb, verifiedName: result.matchedTitle, challengerName: challenger?.name || '?' }); } catch(e){}
+      }
+    });
+  }
+
+  showChallengeResult(message, entry.celeb, result.matchedTitle, challenger?.name || 'Challenger', deltas);
+
+  playBeep(message === 'valid' ? 400 : 800, 'sine', 0.2);
+}
+
+function showChallengeModal(challengerName, accusedName, celeb) {
+  $('challengeIcon').innerText = '🔍';
+  $('challengeTitle').innerText = 'Verifying on Wikipedia...';
+  $('challengeTitle').className = "text-2xl font-display font-black text-brand-300";
+  $('challengeSubtitle').innerText = `${challengerName} challenged "${celeb}"`;
+  $('challengeDetails').innerHTML = `
+    <div class="flex items-center justify-center gap-3 py-2">
+      <div class="w-6 h-6 border-2 border-brand-400 border-t-transparent rounded-full animate-spin"></div>
+      <span class="text-slate-300 text-sm">Searching Wikipedia...</span>
+    </div>
+  `;
+  $('challengeCloseBtn').classList.add('hidden');
+  showModal('challengeModal');
+}
+
+function showChallengeResult(outcome, celeb, verifiedName, challengerName, deltas) {
+  if (outcome === 'valid') {
+    $('challengeIcon').innerText = '✅';
+    $('challengeTitle').innerText = 'Challenge Failed';
+    $('challengeTitle').className = "text-2xl font-display font-black text-rose-400";
+    $('challengeSubtitle').innerText = `"${celeb}" is real — it has a Wikipedia page.`;
+    $('challengeDetails').innerHTML = `
+      <div class="space-y-2">
+        <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">Wikipedia Entry</div>
+        <div class="text-sm text-emerald-300 font-semibold">${escapeHtml(verifiedName || celeb)}</div>
+        <div class="border-t border-slate-800 pt-2 text-sm">
+          <div class="flex justify-between"><span class="text-slate-400">${escapeHtml(challengerName)}</span><span class="text-rose-400 font-bold">-1 point</span></div>
+        </div>
+      </div>
+    `;
+  } else {
+    $('challengeIcon').innerText = '❌';
+    $('challengeTitle').innerText = 'Challenge Successful';
+    $('challengeTitle').className = "text-2xl font-display font-black text-emerald-400";
+    $('challengeSubtitle').innerText = `"${celeb}" has no Wikipedia page.`;
+    $('challengeDetails').innerHTML = `
+      <div class="space-y-2">
+        <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">Result</div>
+        <div class="text-sm text-rose-300 font-semibold">No Wikipedia entry found.</div>
+        <div class="border-t border-slate-800 pt-2 text-sm space-y-1">
+          <div class="flex justify-between"><span class="text-slate-400">Submitter</span><span class="text-rose-400 font-bold">-1 point</span></div>
+          <div class="flex justify-between"><span class="text-slate-400">Name</span><span class="text-amber-300">Removed from chain</span></div>
+          <div class="flex justify-between"><span class="text-slate-400">New seed</span><span class="text-amber-300">Generated</span></div>
+        </div>
+      </div>
+    `;
+  }
+  $('challengeCloseBtn').classList.remove('hidden');
+}
+
+function finishChallenge() {
+  hideModal('challengeModal');
+
+  const entryIndex = challengeActiveFor;
+  const entry = chainHistory[entryIndex];
+  const wasValid = entry && (entry.lastChallengeResult === 'valid');
+
+  // Determine outcome based on what was shown
+  // We can track via a state var
+  const outcome = lastChallengeOutcome;
+
+  if (outcome === 'invalid') {
+    // Remove fake entry, generate new seed, challenger starts
+    chainHistory = [];
+    consecutivePasses = 0;
+    applyNewSeed();
+
+    // Challenger plays next
+    const challengerIdx = players.findIndex(p => p.name === lastChallengerName);
+    if (challengerIdx >= 0) activeTurnIndex = challengerIdx;
+    else activeTurnIndex = 0;
+  } else {
+    // Real — challenger plays next
+    const challengerIdx = players.findIndex(p => p.name === lastChallengerName);
+    if (challengerIdx >= 0) activeTurnIndex = challengerIdx;
+    else activeTurnIndex = (activeTurnIndex + 1) % players.length;
+  }
+
+  challengeActiveFor = null;
+  challengeResolved = false;
+  lastChallengerName = '';
+  lastChallengeOutcome = '';
+
+  resetTimer();
+  if (isHost && currentMode === 'online') broadcastState();
+  else renderGameState();
+}
+
+// Track last challenge for modal close
+let lastChallengerName = '';
+let lastChallengeOutcome = '';
+
+// Override showChallengeResult to store state
+const _origShowChallengeResult = showChallengeResult;
+showChallengeResult = function(outcome, celeb, verifiedName, challengerName) {
+  lastChallengerName = challengerName;
+  lastChallengeOutcome = outcome;
+  _origShowChallengeResult(outcome, celeb, verifiedName, challengerName);
+};
+
+// ============================================================
+// WIKIPEDIA VERIFICATION
+// ============================================================
+async function verifyOnWikipedia(name) {
+  const cleanName = name.trim().replace(/\s+/g, '_');
+  const tryUrls = [
+    `https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&redirects=1&titles=${encodeURIComponent(cleanName)}`,
+    `https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&list=search&srlimit=3&srsearch=${encodeURIComponent(name)}`
+  ];
+
+  try {
+    // Step 1: exact title lookup
+    const r1 = await fetchWithTimeout(tryUrls[0], 5000);
+    const j1 = await r1.json();
+    const pages = j1?.query?.pages || {};
+    for (const pid in pages) {
+      if (pages[pid].missing === undefined) {
+        return { exists: true, matchedTitle: pages[pid].title };
+      }
+    }
+
+    // Step 2: search fallback
+    const r2 = await fetchWithTimeout(tryUrls[1], 5000);
+    const j2 = await r2.json();
+    const hits = j2?.query?.search || [];
+    if (hits.length > 0) {
+      const top = hits[0].title;
+      if (isCloseMatch(name, top)) {
+        return { exists: true, matchedTitle: top };
+      }
+    }
+
+    return { exists: false, matchedTitle: null };
+  } catch (e) {
+    console.warn("Wikipedia check failed, defaulting to valid:", e);
+    return { exists: true, matchedTitle: name, fallback: true };
+  }
+}
+
+function fetchWithTimeout(url, ms) {
+  if (wikipediaAbortController) wikipediaAbortController.abort();
+  wikipediaAbortController = new AbortController();
+  const id = setTimeout(() => wikipediaAbortController.abort(), ms);
+  return fetch(url, { signal: wikipediaAbortController.signal }).finally(() => clearTimeout(id));
+}
+
+function isCloseMatch(submitted, matched) {
+  const a = normalizeName(submitted).replace(/[^a-z0-9 ]/g, '');
+  const b = normalizeName(matched).replace(/[^a-z0-9 ]/g, '');
+  if (a === b) return true;
+  if (b.startsWith(a) || a.startsWith(b)) return true;
+  // First word match + length within 3
+  const aw = a.split(' ')[0], bw = b.split(' ')[0];
+  if (aw === bw && Math.abs(a.length - b.length) <= 3) return true;
+  // Levenshtein-ish
+  return levenshtein(a, b) <= 3;
+}
+
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  if (!m) return n;
+  if (!n) return m;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i-1] === b[j-1]
+        ? dp[i-1][j-1]
+        : 1 + Math.min(dp[i-1][j-1], dp[i-1][j], dp[i][j-1]);
+    }
+  }
+  return dp[m][n];
+}
+
+// ============================================================
+// PASS / TIMER / AI
+// ============================================================
+function passTurn() {
+  const curPlayer = players[activeTurnIndex];
+  if (!curPlayer) return;
+
+  if (currentMode === 'online' && !isHost) {
+    if (curPlayer.id !== myPeerId) return;
+    if (hostConn && hostConn.open) {
+      hostConn.send({ type: 'ACTION_PASS', playerId: myPeerId });
+    }
+    return;
+  }
+  if (currentMode === 'online' && curPlayer.id !== myPeerId) return;
+  handlePass();
+}
+
+function handlePass() {
+  const curPlayer = players[activeTurnIndex];
+  if (!curPlayer) return;
+  curPlayer.score -= 1;
+  consecutivePasses++;
+
+  if (consecutivePasses >= players.length) {
+    // All players passed in a row → new seed, chain restarts
+    consecutivePasses = 0;
+    applyNewSeed();
+    activeTurnIndex = 0;
+  } else {
+    activeTurnIndex = (activeTurnIndex + 1) % players.length;
+  }
+
+  resetTimer();
+  if (isHost && currentMode === 'online') broadcastState();
+  else renderGameState();
+}
+
+function startTimer() {
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    $('timerText').innerText = `${Math.max(0, timeLeft)}s`;
+
+    if (timeLeft <= 3 && timeLeft > 0) playBeep(800, 'sine', 0.05);
+
+    if (isHost && currentMode === 'online') broadcastState();
+
+    if (timeLeft <= 0) {
+      clearInterval(timerInterval);
+      playBeep(250, 'sawtooth', 0.3);
+      const curPlayer = players[activeTurnIndex];
+      if (curPlayer) curPlayer.score -= 1;
+      consecutivePasses = 0;
+      activeTurnIndex = (activeTurnIndex + 1) % players.length;
+      resetTimer();
+      if (isHost && currentMode === 'online') broadcastState();
+      else renderGameState();
+    }
+  }, 1000);
+}
+
+function resetTimer() {
+  clearInterval(timerInterval);
+  timeLeft = timerDuration;
+  $('timerText').innerText = `${timeLeft}s`;
+  if (isHost || currentMode !== 'online') startTimer();
+}
+
+function handleAiTurn() {
+  const bot = players[activeTurnIndex];
+  if (!bot || !bot.isBot) return;
+
+  const candidates = CELEBRITY_DB.filter(c => {
+    if (chainHistory.some(item => normalizeName(item.celeb) === normalizeName(c))) return false;
+    if (targetLetter && c.charAt(0).toUpperCase() !== targetLetter) return false;
+    return true;
+  });
+
+  if (candidates.length > 0) {
+    const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+    processSubmission(chosen, bot.id);
+  } else {
+    // No candidates — bot loses a point and passes
+    bot.score -= 1;
+    consecutivePasses++;
+    activeTurnIndex = (activeTurnIndex + 1) % players.length;
+    resetTimer();
+    renderGameState();
+  }
+}
+
+// ============================================================
+// QUIT GAME
+// ============================================================
+function quitGame() {
+  if (!confirm("End the game and see final scores?")) return;
+  clearInterval(timerInterval);
+  gameActive = false;
+  if (challengeTimeoutId) clearTimeout(challengeTimeoutId);
+
+  const sorted = [...players].sort((a, b) => b.score - a.score);
+  const winner = sorted[0];
+
+  if (isHost && currentMode === 'online') {
+    players.forEach(p => {
+      if (p.conn && p.conn.open) {
+        try { p.conn.send({ type: 'GAME_OVER', players: serializePlayers(players) }); } catch(e){}
+      }
+    });
+  }
+
+  showGameOver({ players: serializePlayers(players) });
+}
+
+function showGameOver(data) {
+  clearInterval(timerInterval);
+  gameActive = false;
+
+  const sorted = [...data.players].sort((a, b) => b.score - a.score);
+  const winner = sorted[0];
+  const isTie = sorted.length > 1 && sorted[0].score === sorted[1].score;
+
+  confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+
+  $('winnerTitle').innerText = isTie ? "It's a Tie!" : `${winner.name} Wins!`;
+  $('winnerSubtitle').innerText = isTie ? "Everyone played equally well" : `${winner.score} points`;
+
+  $('finalStats').innerHTML = `
+    <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Final Scores</div>
+    ${sorted.map((p, i) => `
+      <div class="flex justify-between items-center py-1 ${i === 0 ? 'text-amber-300 font-bold' : 'text-slate-300'}">
+        <span>${i === 0 ? '🏆 ' : ''}${escapeHtml(p.name)}</span>
+        <span class="${p.score < 0 ? 'text-rose-400' : ''}">${p.score} pts</span>
+      </div>
+    `).join('')}
+  `;
+
+  showModal('winModal');
+}
+
+// ============================================================
+// RESET
+// ============================================================
+function resetToSetup() {
+  hideModal('winModal');
+  hideModal('qrModal');
+  hideModal('challengeModal');
+  $('gameScreen').classList.add('hidden');
+  $('lobbyBox').classList.add('hidden');
+  $('setupCard').classList.remove('hidden');
+  $('leaveBtn').classList.add('hidden');
+  $('createBox').classList.remove('hidden');
+  $('joinBox').classList.add('hidden');
+  $('joinLog').classList.add('hidden');
+  $('createRoomBtn').disabled = false;
+  $('joinRoomBtn').disabled = false;
+  $('copyInviteBtn').disabled = false;
+  $('qrBtn').disabled = false;
+
+  clearInterval(timerInterval);
+  if (challengeTimeoutId) clearTimeout(challengeTimeoutId);
+  gameActive = false;
+  aiThinking = false;
+  players = [];
+  chainHistory = [];
+  activeTurnIndex = 0;
+  targetLetter = '';
+  timeLeft = timerDuration;
+  roomCode = null;
+  isHost = false;
+  hostConn = null;
+  hostPeerReady = false;
+  challengeActiveFor = null;
+  challengeResolved = false;
+  consecutivePasses = 0;
+
+  if (myPeer) { try { myPeer.destroy(); } catch(e){} myPeer = null; }
+  myPeerId = null;
+
+  updateStatus('ready', 'Ready');
+  updateLobbyList();
+}
+
+function leaveMatch() {
+  if (confirm("Leave the match?")) {
+    window.location.href = window.location.pathname;
+  }
+}
+
+// ============================================================
+// MODAL HELPERS
+// ============================================================
+function showModal(id) { $(id).classList.remove('hidden'); }
+function hideModal(id) { $(id).classList.add('hidden'); }
+
+// Override modal close for challenge to trigger finishChallenge
+document.addEventListener('click', e => {
+  if (e.target && e.target.id === 'challengeCloseBtn') {
+    finishChallenge();
+  }
+});
+
+// ============================================================
+// READ SETTINGS FROM SELECTORS (called at game start)
+// ============================================================
+(function initSelectors() {
+  window.addEventListener('DOMContentLoaded', () => {
+    const sp = $('startPointsSelect');
+    const tm = $('timerSelect');
+    if (sp) startingPoints = parseInt(sp.value) || 5;
+    if (tm) timerDuration = parseInt(tm.value) || 5;
+  });
+})();
