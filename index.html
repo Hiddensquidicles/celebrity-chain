@@ -44,6 +44,14 @@
   }
   .glow-active { animation: pulseGlow 2s infinite; }
 
+  @keyframes challengeShrink {
+    from { stroke-dashoffset: 0; }
+    to { stroke-dashoffset: 138; }
+  }
+  .challenge-ring circle.progress {
+    animation: challengeShrink 3s linear forwards;
+  }
+
   .glass-card {
     background: rgba(30, 41, 59, 0.85);
     backdrop-filter: blur(12px);
@@ -93,14 +101,15 @@
       </div>
     </div>
     <button onclick="copyBrowserUrl()" class="whitespace-nowrap px-3 py-1.5 rounded-lg bg-amber-400 text-slate-950 font-bold text-xs hover:bg-amber-300 transition flex items-center gap-1.5 shadow">
-      <i class="fa-solid fa-arrow-up-right-from-square"></i> Copy Link for Safari/Chrome
+      <i class="fa-solid fa-arrow-up-right-from-square"></i> Copy Link
     </button>
   </div>
 
+  <!-- SETUP SCREEN -->
   <div id="setupCard" class="glass-card rounded-2xl p-6 shadow-2xl transition-all">
     <div class="text-center mb-6">
       <h2 class="text-2xl font-display font-bold text-white mb-1">Choose Game Mode</h2>
-      <p class="text-sm text-slate-400">Connect last letters to first letters with famous celebrities!</p>
+      <p class="text-sm text-slate-400">Chain celebrities by connecting last letter to first letter!</p>
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
@@ -190,8 +199,7 @@
             <span class="text-xs font-extrabold uppercase text-slate-400 tracking-wider">Connected Players (<span id="playerCount">1</span>)</span>
             <span class="text-xs text-slate-500">Host controls match start</span>
           </div>
-          <div id="lobbyList" class="space-y-2">
-          </div>
+          <div id="lobbyList" class="space-y-2"></div>
         </div>
 
         <button id="startHostBtn" onclick="hostStartMatch()" class="hidden w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-base shadow-lg shadow-emerald-900/30 transition">
@@ -214,24 +222,37 @@
         </div>
       </div>
 
-      <div id="offlineNamesContainer" class="space-y-2">
-      </div>
+      <div id="offlineNamesContainer" class="space-y-2"></div>
 
       <button onclick="startOfflineMatch()" class="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-base shadow-lg transition">
         Start Local Match
       </button>
     </div>
 
-    <div class="mt-6 pt-4 border-t border-slate-800 flex items-center justify-between">
-      <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">Target Score to Win</label>
-      <select id="winScoreSelect" class="bg-slate-900 border border-slate-700 text-amber-300 font-bold rounded-xl px-3 py-1.5 focus:outline-none">
-        <option value="5">5 Points</option>
-        <option value="10" selected>10 Points</option>
-        <option value="15">15 Points</option>
-      </select>
+    <!-- GAME SETTINGS -->
+    <div class="mt-6 pt-4 border-t border-slate-800 space-y-3">
+      <div class="flex items-center justify-between">
+        <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">Starting Points</label>
+        <select id="startPointsSelect" class="bg-slate-900 border border-slate-700 text-amber-300 font-bold rounded-xl px-3 py-1.5 focus:outline-none">
+          <option value="3">3 Points</option>
+          <option value="5" selected>5 Points</option>
+          <option value="10">10 Points</option>
+        </select>
+      </div>
+      <div class="flex items-center justify-between">
+        <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">Time per Turn</label>
+        <select id="timerSelect" class="bg-slate-900 border border-slate-700 text-amber-300 font-bold rounded-xl px-3 py-1.5 focus:outline-none">
+          <option value="5" selected>5 Seconds</option>
+          <option value="10">10 Seconds</option>
+          <option value="15">15 Seconds</option>
+          <option value="20">20 Seconds</option>
+          <option value="30">30 Seconds</option>
+        </select>
+      </div>
     </div>
   </div>
 
+  <!-- GAME SCREEN -->
   <div id="gameScreen" class="hidden space-y-4">
     <div class="glass-card rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
       <div class="flex items-center gap-3">
@@ -241,16 +262,21 @@
         <div>
           <div class="text-xs font-extrabold uppercase text-slate-400 tracking-wider">Next Target Letter</div>
           <div id="targetLetterDisplay" class="text-2xl font-black text-amber-300 font-display">
-            ANY CELEBRITY
+            ...
           </div>
         </div>
       </div>
 
-      <div class="flex items-center gap-2 bg-slate-900/80 px-4 py-2 rounded-xl border border-slate-800">
-        <i class="fa-solid fa-stopwatch text-rose-400 text-lg"></i>
-        <div>
-          <div class="text-[10px] uppercase font-extrabold text-slate-400">Time Left</div>
-          <div id="timerText" class="text-lg font-mono font-bold text-rose-300">20s</div>
+      <div class="flex items-center gap-3">
+        <button onclick="quitGame()" class="px-3 py-2 rounded-xl bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 transition text-sm font-semibold flex items-center gap-2">
+          <i class="fa-solid fa-flag-checkered"></i> End Game
+        </button>
+        <div class="flex items-center gap-2 bg-slate-900/80 px-4 py-2 rounded-xl border border-slate-800">
+          <i class="fa-solid fa-stopwatch text-rose-400 text-lg"></i>
+          <div>
+            <div class="text-[10px] uppercase font-extrabold text-slate-400">Time Left</div>
+            <div id="timerText" class="text-lg font-mono font-bold text-rose-300">--</div>
+          </div>
         </div>
       </div>
     </div>
@@ -258,33 +284,32 @@
     <div class="glass-card rounded-2xl p-4">
       <div class="flex items-center justify-between mb-3">
         <span class="text-xs font-extrabold uppercase text-slate-400 tracking-wider flex items-center gap-2">
-          <i class="fa-solid fa-link text-amber-400"></i> Current Chain History
+          <i class="fa-solid fa-link text-amber-400"></i> Chain History
         </span>
         <span id="chainCount" class="text-xs font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full border border-amber-500/20">0 Links</span>
       </div>
 
       <div id="chainTicker" class="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
         <div class="px-4 py-2 rounded-xl bg-slate-900/60 border border-dashed border-slate-700 text-slate-500 text-sm font-semibold whitespace-nowrap">
-          Match is starting... First player sets the standard!
+          Match is starting...
         </div>
       </div>
     </div>
 
     <div id="turnCard" class="glass-card rounded-2xl p-6 text-center border-2 border-brand-500/40 relative overflow-hidden">
-      <div id="turnNotice" class="text-sm font-bold text-brand-300 mb-1">
+      <div class="text-sm font-bold text-brand-300 mb-1">
         It's <span id="currentTurnName" class="text-white text-base">Player 1</span>'s turn!
       </div>
 
       <div class="max-w-md mx-auto space-y-3 mt-4">
         <div class="relative">
-          <input id="celebInput" type="text" placeholder="Type Celebrity Name (e.g. Tom Hanks)..." autocomplete="off" class="w-full px-5 py-4 rounded-xl bg-slate-900 border-2 border-slate-700 text-white font-bold text-lg placeholder-slate-500 focus:outline-none focus:border-amber-400 transition shadow-inner disabled:opacity-50">
-          <div id="suggestionsBox" class="hidden absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl overflow-hidden shadow-2xl z-20 max-h-48 overflow-y-auto">
-          </div>
+          <input id="celebInput" type="text" placeholder="Type Celebrity Name..." autocomplete="off" class="w-full px-5 py-4 rounded-xl bg-slate-900 border-2 border-slate-700 text-white font-bold text-lg placeholder-slate-500 focus:outline-none focus:border-amber-400 transition shadow-inner disabled:opacity-50">
+          <div id="suggestionsBox" class="hidden absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl overflow-hidden shadow-2xl z-20 max-h-48 overflow-y-auto"></div>
         </div>
 
         <div class="flex gap-2">
           <button id="submitBtn" onclick="submitCelebrity()" class="flex-1 py-3.5 px-6 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-base shadow-lg shadow-amber-500/20 transition flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed">
-            <i class="fa-solid fa-paper-plane"></i> Submit Answer
+            <i class="fa-solid fa-paper-plane"></i> Submit
           </button>
           <button id="passBtn" onclick="passTurn()" class="px-4 py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm transition disabled:opacity-40 disabled:cursor-not-allowed">
             Pass
@@ -294,14 +319,14 @@
     </div>
 
     <div class="glass-card rounded-2xl p-4">
-      <div class="text-xs font-extrabold uppercase text-slate-400 tracking-wider mb-3">Live Scoreboard</div>
-      <div id="scoreboard" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-      </div>
+      <div class="text-xs font-extrabold uppercase text-slate-400 tracking-wider mb-3">Scoreboard</div>
+      <div id="scoreboard" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
     </div>
   </div>
 
 </main>
 
+<!-- RULES MODAL -->
 <div id="rulesModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
   <div class="glass-card max-w-lg w-full rounded-2xl p-6 border border-slate-700 space-y-4 max-h-[90vh] overflow-y-auto">
     <div class="flex justify-between items-center border-b border-slate-800 pb-3">
@@ -313,15 +338,16 @@
       </button>
     </div>
     <div class="space-y-3 text-sm text-slate-300 leading-relaxed">
-      <p><b>Celebrity Chain</b> is the ultimate pop-culture word association game!</p>
+      <p><b>Celebrity Chain</b> — everyone starts with points. Points are only LOST by making mistakes.</p>
       <ul class="list-disc pl-5 space-y-2 text-slate-300">
-        <li>The first player names <b>any celebrity</b> (e.g. <i>Tom Hanks</i>).</li>
-        <li>The next player must name a celebrity whose <b>First Name</b> starts with the <b>First Letter of the previous Last Name</b>.</li>
-        <li>Example: Tom <b>H</b>anks ➔ <b>H</b>arrison Ford ➔ <b>F</b>rank Sinatra ➔ <b>S</b>carlett Johansson!</li>
-        <li>Single-name celebrities (Cher, Drake, Rihanna) are allowed — they chain off their own first letter.</li>
-        <li>Each valid celebrity earns <b>+1 Point</b>.</li>
-        <li>You have <b>20 seconds</b> per turn. Running out of time or submitting an invalid name passes the turn with 0 points.</li>
-        <li>First player to reach the target score wins!</li>
+        <li>The computer picks a <b>starting celebrity</b>. The chain begins from its last name's first letter.</li>
+        <li>Players take turns naming a celebrity whose <b>first name</b> begins with the required letter.</li>
+        <li>After each submission, a <b>3-second challenge window</b> opens. Any other player can challenge.</li>
+        <li><b>Challenged and the name is real:</b> challenger loses 1 point.</li>
+        <li><b>Challenged and the name is fake:</b> submitter loses 1 point, fake name is removed, new seed generated.</li>
+        <li><b>Pass, timeout, or mistake:</b> lose 1 point.</li>
+        <li><b>Everyone passes in a row:</b> new seed generated, chain restarts.</li>
+        <li><b>End Game</b> anytime — the player with the most points wins.</li>
       </ul>
     </div>
     <button onclick="hideModal('rulesModal')" class="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm">
@@ -330,6 +356,7 @@
   </div>
 </div>
 
+<!-- QR MODAL -->
 <div id="qrModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
   <div class="glass-card max-w-sm w-full rounded-2xl p-6 text-center space-y-4">
     <h3 class="text-lg font-bold text-white">Scan to Join Room</h3>
@@ -341,15 +368,31 @@
   </div>
 </div>
 
+<!-- CHALLENGE MODAL -->
+<div id="challengeModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-lg z-50 flex items-center justify-center p-4">
+  <div class="glass-card max-w-md w-full rounded-2xl p-6 text-center space-y-5 border-2 border-brand-500/60">
+    <div id="challengeIcon" class="text-5xl">🔍</div>
+    <div>
+      <h2 id="challengeTitle" class="text-2xl font-display font-black text-amber-300">Verifying...</h2>
+      <p id="challengeSubtitle" class="text-sm text-slate-300 mt-1">Checking Wikipedia for the submitted name</p>
+    </div>
+    <div id="challengeDetails" class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 text-left space-y-1 text-sm">
+    </div>
+    <button id="challengeCloseBtn" onclick="hideModal('challengeModal')" class="hidden w-full py-3 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-black text-base shadow-lg transition">
+      Continue
+    </button>
+  </div>
+</div>
+
+<!-- GAME OVER MODAL -->
 <div id="winModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-lg z-50 flex items-center justify-center p-4">
   <div class="glass-card max-w-md w-full rounded-2xl p-6 text-center space-y-5 border-2 border-amber-500/50">
-    <div class="text-5xl">🏆</div>
+    <div class="text-5xl">🏁</div>
     <div>
-      <h2 class="text-3xl font-display font-black text-amber-300" id="winnerTitle">Player 1 Wins!</h2>
-      <p class="text-sm text-slate-300 mt-1" id="winnerSubtitle">Reached the winning target!</p>
+      <h2 class="text-2xl font-display font-black text-amber-300" id="winnerTitle">Game Ended</h2>
+      <p class="text-sm text-slate-300 mt-1" id="winnerSubtitle">Final scores</p>
     </div>
-    <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 text-left space-y-2" id="finalStats">
-    </div>
+    <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 text-left space-y-2" id="finalStats"></div>
     <button onclick="resetToSetup()" class="w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-base shadow-lg transition">
       Play Again
     </button>
@@ -357,942 +400,7 @@
 </div>
 
 <script>
-// ============================================================
-// CELEBRITY DATASET
-// ============================================================
-const CELEBRITY_DB = [
-  "Tom Hanks", "Harrison Ford", "Frank Sinatra", "Scarlett Johansson", "Johnny Depp",
-  "Denzel Washington", "Will Smith", "Brad Pitt", "Penelope Cruz", "Cameron Diaz",
-  "Daniel Craig", "Christopher Nolan", "Nicolas Cage", "Christian Bale", "Ben Affleck",
-  "Anne Hathaway", "Angelina Jolie", "Jennifer Aniston", "Arnold Schwarzenegger",
-  "Al Pacino", "Adam Sandler", "Steve Carell", "Stephen Curry", "Chris Hemsworth",
-  "Chris Evans", "Emma Watson", "Emma Stone", "Eminem", "Ed Sheeran", "Selena Gomez",
-  "George Clooney", "Keanu Reeves", "Ryan Reynolds", "Robert Downey Jr", "Rihanna",
-  "Taylor Swift", "Travis Kelce", "Kanye West", "Katy Perry", "Kim Kardashian",
-  "Leonardo DiCaprio", "Lady Gaga", "Lionel Messi", "Michael Jordan", "Meryl Streep",
-  "Morgan Freeman", "Matt Damon", "Margot Robbie", "Natalie Portman", "Oprah Winfrey",
-  "Pedro Pascal", "Paul Rudd", "Quentin Tarantino", "Zendaya", "Beyonce Knowles",
-  "Justin Bieber", "Drake", "Dwayne Johnson", "Jack Black", "Julia Roberts",
-  "Cher", "Madonna", "Adele", "Prince", "Bono"
-];
-
-// ============================================================
-// APP STATE
-// ============================================================
-let currentMode = 'online';
-let myPeer = null;
-let myPeerId = null;
-let roomCode = null;
-let isHost = false;
-let hostConn = null;
-let hostPeerReady = false;
-
-let players = [];
-let activeTurnIndex = 0;
-let chainHistory = [];
-let targetLetter = '';
-let timerInterval = null;
-let timeLeft = 20;
-let targetWinScore = 10;
-let soundEnabled = true;
-let offlineCount = 2;
-let aiThinking = false;
-let gameActive = false;
-
-// ============================================================
-// UTILITIES
-// ============================================================
-const $ = id => document.getElementById(id);
-
-function cleanJoinCode(el) {
-  el.value = el.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 8);
-}
-
-function isInAppBrowser() {
-  const ua = navigator.userAgent || navigator.vendor || window.opera;
-  return (/FBAN|FBAV|Instagram|MicroMessenger|Line|Snapchat|TikTok|Twitter|LinkedIn|WhatsApp/i.test(ua));
-}
-
-function generateRoomCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  for (let i = 0; i < 8; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
-}
-
-function normalizeName(str) {
-  return str.trim().replace(/\s+/g, ' ').toLowerCase();
-}
-
-function parseName(fullName) {
-  const parts = fullName.trim().split(/\s+/);
-  const firstName = parts[0];
-  const lastName = parts.length > 1 ? parts[parts.length - 1] : parts[0];
-  return {
-    firstName,
-    lastName,
-    firstLetter: firstName.charAt(0).toUpperCase(),
-    lastLetter: lastName.charAt(0).toUpperCase()
-  };
-}
-
-// ============================================================
-// INITIALIZATION
-// ============================================================
-window.onload = () => {
-  if (isInAppBrowser()) {
-    $('inAppBrowserBanner').classList.remove('hidden');
-  }
-
-  const urlParams = new URLSearchParams(window.location.search);
-  const codeParam = urlParams.get('room');
-  if (codeParam) {
-    const cleaned = codeParam.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 8);
-    if (cleaned.length === 8) {
-      $('joinCode').value = cleaned;
-      switchOnlineTab('join');
-    }
-  }
-
-  $('celebInput').addEventListener('input', handleSuggestions);
-  $('celebInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); submitCelebrity(); }
-  });
-
-  window.addEventListener('beforeunload', () => {
-    if (myPeer) { try { myPeer.destroy(); } catch(e){} }
-  });
-};
-
-// ============================================================
-// AUDIO
-// ============================================================
-function toggleAudio() {
-  soundEnabled = !soundEnabled;
-  $('audioBtn').innerHTML = soundEnabled ?
-    '<i class="fa-solid fa-volume-high text-amber-400"></i>' :
-    '<i class="fa-solid fa-volume-xmark text-slate-500"></i>';
-}
-
-function playBeep(freq = 440, type = 'sine', duration = 0.1) {
-  if (!soundEnabled) return;
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = type;
-    osc.frequency.value = freq;
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
-    osc.stop(ctx.currentTime + duration);
-  } catch(e) {}
-}
-
-function copyBrowserUrl() {
-  const url = window.location.href;
-  try {
-    navigator.clipboard.writeText(url);
-  } catch(e) {
-    const input = document.createElement('input');
-    input.value = url;
-    document.body.appendChild(input);
-    input.select();
-    document.execCommand('copy');
-    document.body.removeChild(input);
-  }
-  alert("Page link copied! Paste this link into Safari or Chrome to play smoothly.");
-}
-
-// ============================================================
-// MODE SELECTION
-// ============================================================
-function setMode(mode) {
-  currentMode = mode;
-  ['btnOnline', 'btnPass', 'btnAi'].forEach(id => {
-    $(id).className = "p-4 rounded-xl border-2 border-slate-700/80 bg-slate-800/40 text-left transition hover:border-slate-600";
-  });
-
-  if (mode === 'online') {
-    $('btnOnline').className = "p-4 rounded-xl border-2 border-brand-500 bg-brand-900/30 text-left transition";
-    $('onlinePanel').classList.remove('hidden');
-    $('offlinePanel').classList.add('hidden');
-  } else {
-    if (mode === 'pass_play') $('btnPass').className = "p-4 rounded-xl border-2 border-emerald-500 bg-emerald-900/30 text-left transition";
-    if (mode === 'vs_ai') $('btnAi').className = "p-4 rounded-xl border-2 border-amber-500 bg-amber-900/30 text-left transition";
-    $('onlinePanel').classList.add('hidden');
-    $('offlinePanel').classList.remove('hidden');
-    setupOfflinePanel();
-  }
-}
-
-function switchOnlineTab(tab) {
-  if (tab === 'create') {
-    $('tabCreate').className = "flex-1 py-2 text-sm font-bold rounded-lg bg-brand-600 text-white transition";
-    $('tabJoin').className = "flex-1 py-2 text-sm font-bold rounded-lg text-slate-400 hover:text-white transition";
-    $('createBox').classList.remove('hidden');
-    $('joinBox').classList.add('hidden');
-  } else {
-    $('tabJoin').className = "flex-1 py-2 text-sm font-bold rounded-lg bg-brand-600 text-white transition";
-    $('tabCreate').className = "flex-1 py-2 text-sm font-bold rounded-lg text-slate-400 hover:text-white transition";
-    $('joinBox').classList.remove('hidden');
-    $('createBox').classList.add('hidden');
-  }
-}
-
-// ============================================================
-// PEER SETUP
-// ============================================================
-function initPeerJS(customId, onOpen, onError) {
-  updateStatus('connecting', 'Connecting...');
-
-  if (myPeer) { try { myPeer.destroy(); } catch(e){} myPeer = null; }
-
-  myPeer = new Peer(customId, {
-    debug: 1,
-    config: {
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:stun.services.mozilla.com' }
-      ]
-    }
-  });
-
-  myPeer.on('open', id => {
-    myPeerId = id;
-    updateStatus('connected', 'Online');
-    if (onOpen) onOpen(id);
-  });
-
-  myPeer.on('error', err => {
-    console.error("PeerJS Error:", err);
-    updateStatus('error', 'Network Error');
-    if (onError) onError(err);
-  });
-
-  myPeer.on('disconnected', () => {
-    updateStatus('connecting', 'Reconnecting...');
-    try { myPeer.reconnect(); } catch(e){}
-  });
-}
-
-function updateStatus(state, msg) {
-  $('statusText').innerText = msg;
-  const dot = $('statusDot');
-  if (state === 'connected') dot.className = "w-2 h-2 rounded-full bg-emerald-400 inline-block";
-  else if (state === 'connecting') dot.className = "w-2 h-2 rounded-full bg-amber-400 animate-ping inline-block";
-  else dot.className = "w-2 h-2 rounded-full bg-rose-500 inline-block";
-}
-
-// ============================================================
-// HOST: CREATE ROOM
-// ============================================================
-function createRoom() {
-  const hostName = $('hostName').value.trim() || "Host";
-  roomCode = generateRoomCode();
-  hostPeerReady = false;
-
-  $('lobbyCode').innerText = roomCode;
-  $('createBox').classList.add('hidden');
-  $('lobbyBox').classList.remove('hidden');
-  $('startHostBtn').classList.remove('hidden');
-  $('waitHostText').classList.add('hidden');
-  $('copyInviteBtn').disabled = true;
-  $('qrBtn').disabled = true;
-  $('createRoomBtn').disabled = true;
-
-  isHost = true;
-  players = [{ id: 'host_pending', name: hostName, score: 0, isHost: true }];
-  updateLobbyList();
-
-  const fullPeerId = 'cchain8_' + roomCode;
-
-  initPeerJS(fullPeerId,
-    id => {
-      // Host peer ready
-      hostPeerReady = true;
-      players[0].id = id;
-      $('copyInviteBtn').disabled = false;
-      $('qrBtn').disabled = false;
-      $('createRoomBtn').disabled = false;
-      updateLobbyList();
-    },
-    err => {
-      if (err.type === 'unavailable-id') {
-        // Room code collision — regenerate and retry
-        console.warn("Room code collision, regenerating...");
-        $('createRoomBtn').disabled = false;
-        setTimeout(() => createRoom(), 300);
-        return;
-      }
-      alert("Failed to create room. Please refresh and try again. Error: " + (err.type || err.message || 'unknown'));
-      resetToSetup();
-    }
-  );
-
-  // CRITICAL FIX: Attach connection handler SYNCHRONOUSLY, not in setTimeout
-  myPeer.on('connection', conn => {
-    conn.on('open', () => {
-      conn.on('data', data => handleHostIncomingData(data, conn));
-    });
-    conn.on('close', () => {
-      players = players.filter(p => p.conn !== conn);
-      broadcastState();
-      updateLobbyList();
-    });
-    conn.on('error', err => console.error('Connection error:', err));
-  });
-}
-
-// ============================================================
-// GUEST: JOIN ROOM
-// ============================================================
-function joinRoom() {
-  const codeInput = $('joinCode').value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-  const guestName = $('guestName').value.trim() || "Guest";
-  const logBox = $('joinLog');
-
-  if (codeInput.length !== 8) {
-    alert("Please enter a valid 8-character Room Code (e.g. K9X2M7P4).");
-    return;
-  }
-
-  roomCode = codeInput;
-  isHost = false;
-
-  logBox.classList.remove('hidden');
-  logBox.className = "text-xs text-center text-amber-400 font-bold animate-pulse";
-  logBox.innerText = "Connecting to network...";
-  $('joinRoomBtn').disabled = true;
-
-  initPeerJS(null,
-    id => {
-      logBox.innerText = `Searching for room '${roomCode}'...`;
-
-      const hostPeerId = 'cchain8_' + roomCode;
-      hostConn = myPeer.connect(hostPeerId, { reliable: true });
-
-      let connectTimeout = setTimeout(() => {
-        logBox.className = "text-xs text-center text-rose-400 font-bold";
-        logBox.innerText = "⚠️ Host not found. Verify the code and that the host is still on the lobby screen.";
-        $('joinRoomBtn').disabled = false;
-        if (hostConn) { try { hostConn.close(); } catch(e){} }
-      }, 12000);
-
-      hostConn.on('open', () => {
-        clearTimeout(connectTimeout);
-        logBox.className = "text-xs text-center text-emerald-400 font-bold";
-        logBox.innerText = "Connected! Joining room...";
-
-        hostConn.send({ type: 'JOIN', name: guestName, id: id });
-        $('joinBox').classList.add('hidden');
-        $('lobbyBox').classList.remove('hidden');
-        $('lobbyCode').innerText = roomCode;
-        $('startHostBtn').classList.add('hidden');
-        $('waitHostText').classList.remove('hidden');
-        $('copyInviteBtn').disabled = true;
-        $('qrBtn').disabled = true;
-        $('joinRoomBtn').disabled = false;
-      });
-
-      hostConn.on('data', handleGuestIncomingData);
-
-      hostConn.on('close', () => {
-        clearTimeout(connectTimeout);
-        if (gameActive) {
-          alert("Host disconnected. Returning to setup.");
-        }
-        resetToSetup();
-      });
-
-      hostConn.on('error', err => {
-        clearTimeout(connectTimeout);
-        console.error("Host conn error:", err);
-        if (err.type === 'peer-unavailable') {
-          logBox.innerText = "Room not found. Check the code and host's connection.";
-        } else {
-          logBox.innerText = `Connection error: ${err.type || 'unknown'}.`;
-        }
-        logBox.className = "text-xs text-center text-rose-400 font-bold";
-        $('joinRoomBtn').disabled = false;
-      });
-    },
-    err => {
-      logBox.className = "text-xs text-center text-rose-400 font-bold";
-      logBox.innerText = "Network initialization failed. Try refreshing or switching browsers.";
-      $('joinRoomBtn').disabled = false;
-    }
-  );
-}
-
-// ============================================================
-// NETWORK MESSAGE HANDLERS
-// ============================================================
-function handleHostIncomingData(data, conn) {
-  if (data.type === 'JOIN') {
-    // Prevent duplicate IDs
-    if (players.some(p => p.id === data.id)) return;
-    const newPlayer = { id: data.id, name: data.name, score: 0, conn: conn };
-    players.push(newPlayer);
-    updateLobbyList();
-    broadcastState();
-  } else if (data.type === 'ACTION_SUBMIT') {
-    // SECURITY FIX: only allow the current player to submit
-    const curPlayer = players[activeTurnIndex];
-    if (!curPlayer || curPlayer.id !== data.playerId) {
-      console.warn("Rejected submit from non-active player:", data.playerId);
-      return;
-    }
-    processCelebritySubmission(data.celeb, data.playerId);
-  } else if (data.type === 'ACTION_PASS') {
-    const curPlayer = players[activeTurnIndex];
-    if (!curPlayer || curPlayer.id !== data.playerId) return;
-    nextTurn();
-  }
-}
-
-function handleGuestIncomingData(data) {
-  if (data.type === 'LOBBY_STATE') {
-    players = data.players;
-    updateLobbyList();
-  } else if (data.type === 'GAME_START') {
-    players = data.players;
-    targetWinScore = data.targetWinScore;
-    startGameUI();
-  } else if (data.type === 'GAME_SYNC') {
-    players = data.players;
-    chainHistory = data.chainHistory;
-    targetLetter = data.targetLetter;
-    activeTurnIndex = data.activeTurnIndex;
-    timeLeft = data.timeLeft;
-    renderGameState();
-  } else if (data.type === 'GAME_OVER') {
-    showVictoryScreen(data.winner);
-  } else if (data.type === 'KICKED') {
-    alert(data.reason || "You were removed from the room.");
-    resetToSetup();
-  }
-}
-
-// Serialize players (strip non-serializable `conn` and other artifacts)
-function serializePlayers(list) {
-  return list.map(p => ({ id: p.id, name: p.name, score: p.score, isHost: !!p.isHost }));
-}
-
-function broadcastState() {
-  if (!isHost || !myPeer) return;
-  const syncPayload = {
-    type: 'GAME_SYNC',
-    players: serializePlayers(players),
-    chainHistory: chainHistory,
-    targetLetter: targetLetter,
-    activeTurnIndex: activeTurnIndex,
-    timeLeft: timeLeft
-  };
-
-  players.forEach(p => {
-    if (p.conn && p.conn.open) {
-      try { p.conn.send(syncPayload); } catch(e){ console.error(e); }
-    }
-  });
-  renderGameState();
-}
-
-function broadcastLobbyState() {
-  if (!isHost || !myPeer) return;
-  const payload = { type: 'LOBBY_STATE', players: serializePlayers(players) };
-  players.forEach(p => {
-    if (p.conn && p.conn.open) {
-      try { p.conn.send(payload); } catch(e){}
-    }
-  });
-}
-
-function updateLobbyList() {
-  $('playerCount').innerText = players.length;
-  $('lobbyList').innerHTML = players.map(p => `
-    <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <div class="w-8 h-8 rounded-full bg-brand-500/20 text-brand-400 font-bold flex items-center justify-center text-sm">
-          ${p.name.charAt(0).toUpperCase()}
-        </div>
-        <span class="font-bold text-slate-200 text-sm">${escapeHtml(p.name)} ${p.id === myPeerId ? '<span class="text-xs text-amber-400">(You)</span>' : ''}</span>
-      </div>
-      ${p.isHost ? '<span class="text-[10px] bg-amber-500/20 text-amber-300 font-extrabold px-2 py-0.5 rounded-full border border-amber-500/30">HOST</span>' : ''}
-    </div>
-  `).join('');
-  broadcastLobbyState();
-}
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
-
-// ============================================================
-// LOBBY ACTIONS
-// ============================================================
-function copyInviteLink() {
-  if (!roomCode) return;
-  const url = `${window.location.origin}${window.location.pathname}?room=${roomCode}`;
-  try {
-    navigator.clipboard.writeText(url);
-    alert("Room invite link copied to clipboard!");
-  } catch(e) {
-    const input = document.createElement('input');
-    input.value = url;
-    document.body.appendChild(input);
-    input.select();
-    document.execCommand('copy');
-    document.body.removeChild(input);
-    alert("Room invite link copied to clipboard!");
-  }
-}
-
-function showQRCode() {
-  if (!roomCode) return;
-  const url = `${window.location.origin}${window.location.pathname}?room=${roomCode}`;
-  $('qrcode').innerHTML = '';
-  new QRCode($('qrcode'), { text: url, width: 160, height: 160 });
-  $('qrRoomCodeText').innerText = `ROOM CODE: ${roomCode}`;
-  showModal('qrModal');
-}
-
-// ============================================================
-// OFFLINE PANEL
-// ============================================================
-function setupOfflinePanel() {
-  setOfflineCount(offlineCount);
-}
-
-function setOfflineCount(cnt) {
-  offlineCount = cnt;
-  const btns = document.querySelectorAll('.offCountBtn');
-  btns.forEach(b => {
-    const btnCount = parseInt(b.dataset.count);
-    if (btnCount === cnt) {
-      b.className = "offCountBtn flex-1 py-2.5 rounded-xl border border-brand-500 bg-brand-900/40 text-white font-bold transition";
-    } else {
-      b.className = "offCountBtn flex-1 py-2.5 rounded-xl border border-slate-700 bg-slate-900 text-slate-400 font-bold transition";
-    }
-  });
-
-  const container = $('offlineNamesContainer');
-  let html = '';
-  for (let i = 1; i <= cnt; i++) {
-    const isBot = currentMode === 'vs_ai' && i > 1;
-    const defaultVal = isBot ? `Bot ${i - 1}` : `Player ${i}`;
-    html += `
-      <div>
-        <label class="block text-[11px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">Player ${i} Name</label>
-        <input type="text" id="offName_${i}" value="${defaultVal}" maxlength="15" class="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white font-bold text-sm focus:outline-none focus:border-brand-500" ${isBot ? 'disabled' : ''}>
-      </div>
-    `;
-  }
-  container.innerHTML = html;
-}
-
-function startOfflineMatch() {
-  players = [];
-  for (let i = 1; i <= offlineCount; i++) {
-    const name = ($(`offName_${i}`)?.value.trim()) || `Player ${i}`;
-    const isBot = (currentMode === 'vs_ai' && i > 1);
-    players.push({ id: 'p_' + i, name: name, score: 0, isBot: isBot });
-  }
-
-  targetWinScore = parseInt($('winScoreSelect').value);
-  startGameUI();
-}
-
-// ============================================================
-// GAME START
-// ============================================================
-function hostStartMatch() {
-  if (!isHost || !hostPeerReady) {
-    alert("Room isn't ready yet. Please wait a moment.");
-    return;
-  }
-  targetWinScore = parseInt($('winScoreSelect').value);
-  const payload = {
-    type: 'GAME_START',
-    players: serializePlayers(players),
-    targetWinScore: targetWinScore
-  };
-  players.forEach(p => {
-    if (p.conn && p.conn.open) {
-      try { p.conn.send(payload); } catch(e){}
-    }
-  });
-  startGameUI();
-}
-
-function startGameUI() {
-  $('setupCard').classList.add('hidden');
-  $('gameScreen').classList.remove('hidden');
-  $('leaveBtn').classList.remove('hidden');
-
-  activeTurnIndex = 0;
-  chainHistory = [];
-  targetLetter = '';
-  aiThinking = false;
-  gameActive = true;
-
-  renderGameState();
-
-  // Only host / local start the timer loop. Guests receive timer values via sync.
-  if (isHost || currentMode !== 'online') {
-    startTimer();
-  }
-}
-
-// ============================================================
-// RENDER
-// ============================================================
-function renderGameState() {
-  const curPlayer = players[activeTurnIndex];
-  if (!curPlayer) return;
-
-  // Target letter
-  if (!targetLetter) {
-    $('targetLetterDisplay').innerText = "ANY CELEBRITY";
-    $('targetLetterDisplay').className = "text-2xl font-black text-emerald-400 font-display";
-  } else {
-    $('targetLetterDisplay').innerText = `STARTS WITH '${targetLetter}'`;
-    $('targetLetterDisplay').className = "text-2xl font-black text-amber-300 font-display";
-  }
-
-  // Timer display (sync from state on every render)
-  $('timerText').innerText = `${Math.max(0, timeLeft)}s`;
-
-  // Turn notice
-  $('currentTurnName').innerText = curPlayer.name;
-
-  // Determine if this client controls the current turn
-  let isMyTurn = false;
-  if (currentMode !== 'online') {
-    isMyTurn = !curPlayer.isBot;
-  } else {
-    isMyTurn = (curPlayer.id === myPeerId);
-  }
-
-  $('celebInput').disabled = !isMyTurn;
-  $('submitBtn').disabled = !isMyTurn;
-  $('passBtn').disabled = !isMyTurn;
-
-  if (isMyTurn) {
-    $('turnCard').className = "glass-card rounded-2xl p-6 text-center border-2 border-amber-400 glow-active relative overflow-hidden";
-  } else {
-    $('turnCard').className = "glass-card rounded-2xl p-6 text-center border-2 border-slate-700/60 relative overflow-hidden opacity-90";
-  }
-
-  // Chain ticker
-  if (chainHistory.length === 0) {
-    $('chainTicker').innerHTML = `
-      <div class="px-4 py-2 rounded-xl bg-slate-900/60 border border-dashed border-slate-700 text-slate-500 text-sm font-semibold whitespace-nowrap">
-        Match is starting... First player sets the standard!
-      </div>`;
-  } else {
-    $('chainTicker').innerHTML = chainHistory.map((item, idx) => `
-      <div class="flex items-center gap-2 shrink-0">
-        <div class="px-3 py-1.5 rounded-xl bg-slate-900 border border-amber-500/30 text-amber-300 text-sm font-extrabold whitespace-nowrap shadow-md">
-          ${escapeHtml(item.celeb)}
-          <span class="text-[10px] text-slate-400 font-normal block">${escapeHtml(item.playerName)}</span>
-        </div>
-        ${idx < chainHistory.length - 1 ? '<i class="fa-solid fa-arrow-right text-xs text-slate-600"></i>' : ''}
-      </div>
-    `).join('');
-  }
-  $('chainCount').innerText = `${chainHistory.length} Links`;
-
-  // Scoreboard
-  $('scoreboard').innerHTML = players.map((p, idx) => `
-    <div class="p-3 rounded-xl bg-slate-900 border ${idx === activeTurnIndex ? 'border-amber-400 bg-amber-400/5' : 'border-slate-800'} transition">
-      <div class="text-xs font-bold text-slate-400 truncate">${escapeHtml(p.name)}</div>
-      <div class="text-2xl font-black text-white font-display mt-0.5">${p.score} <span class="text-xs font-normal text-slate-500">pts</span></div>
-    </div>
-  `).join('');
-
-  // AI turn — trigger exactly once per AI turn
-  if (curPlayer.isBot && (isHost || currentMode !== 'online') && !aiThinking) {
-    aiThinking = true;
-    setTimeout(() => {
-      aiThinking = false;
-      // Verify it's still the AI's turn
-      if (players[activeTurnIndex] === curPlayer && gameActive) {
-        handleAiTurn();
-      }
-    }, 1500);
-  }
-}
-
-// ============================================================
-// AUTOCOMPLETE
-// ============================================================
-function handleSuggestions() {
-  const val = $('celebInput').value.trim().toLowerCase();
-  const box = $('suggestionsBox');
-  if (val.length < 2) {
-    box.classList.add('hidden');
-    return;
-  }
-
-  const matches = CELEBRITY_DB.filter(c => {
-    if (targetLetter && c.toUpperCase().charAt(0) !== targetLetter) return false;
-    if (chainHistory.some(item => normalizeName(item.celeb) === normalizeName(c))) return false;
-    return c.toLowerCase().includes(val);
-  }).slice(0, 5);
-
-  if (matches.length === 0) {
-    box.classList.add('hidden');
-    return;
-  }
-
-  box.innerHTML = matches.map(m => `
-    <div onclick="selectSuggestion('${escapeHtml(m).replace(/'/g, "\\'")}')" class="px-4 py-2 hover:bg-slate-800 text-white font-semibold text-sm cursor-pointer border-b border-slate-800/50 last:border-0">
-      ${escapeHtml(m)}
-    </div>
-  `).join('');
-  box.classList.remove('hidden');
-}
-
-function selectSuggestion(name) {
-  $('celebInput').value = name;
-  $('suggestionsBox').classList.add('hidden');
-}
-
-// ============================================================
-// SUBMISSION / TURN LOGIC
-// ============================================================
-function submitCelebrity() {
-  const val = $('celebInput').value.trim();
-  if (!val) return;
-
-  if (currentMode === 'online' && !isHost) {
-    // Guest: send to host
-    const curPlayer = players[activeTurnIndex];
-    if (!curPlayer || curPlayer.id !== myPeerId) return;
-    if (hostConn && hostConn.open) {
-      hostConn.send({ type: 'ACTION_SUBMIT', celeb: val, playerId: myPeerId });
-    }
-    $('celebInput').value = '';
-    $('suggestionsBox').classList.add('hidden');
-    return;
-  }
-
-  // Host or local: process directly
-  const curPlayer = players[activeTurnIndex];
-  if (!curPlayer) return;
-  if (currentMode === 'online' && curPlayer.id !== myPeerId) return;
-
-  processCelebritySubmission(val, curPlayer.id);
-  $('celebInput').value = '';
-  $('suggestionsBox').classList.add('hidden');
-}
-
-function processCelebritySubmission(celebName, playerId) {
-  const curPlayer = players[activeTurnIndex];
-  if (!curPlayer || curPlayer.id !== playerId) return;
-
-  const parsed = parseName(celebName);
-
-  // Validate target letter
-  if (targetLetter && parsed.firstLetter !== targetLetter) {
-    playBeep(200, 'sawtooth', 0.2);
-    if (currentMode !== 'online' || curPlayer.id === myPeerId) {
-      alert(`Must start with letter '${targetLetter}'!`);
-    }
-    return;
-  }
-
-  // Validate duplicate (case/space-insensitive)
-  const normalized = normalizeName(celebName);
-  if (chainHistory.some(item => normalizeName(item.celeb) === normalized)) {
-    playBeep(200, 'sawtooth', 0.2);
-    if (currentMode !== 'online' || curPlayer.id === myPeerId) {
-      alert("That celebrity has already been named in this chain!");
-    }
-    return;
-  }
-
-  // Valid!
-  playBeep(600, 'sine', 0.15);
-  curPlayer.score += 1;
-  chainHistory.push({ celeb: celebName.trim().replace(/\s+/g, ' '), playerName: curPlayer.name });
-  targetLetter = parsed.lastLetter;
-
-  // Win check
-  if (curPlayer.score >= targetWinScore) {
-    if (isHost || currentMode !== 'online') {
-      triggerGameOver(curPlayer);
-    }
-    return;
-  }
-
-  nextTurn();
-}
-
-function passTurn() {
-  const curPlayer = players[activeTurnIndex];
-  if (!curPlayer) return;
-
-  if (currentMode === 'online' && !isHost) {
-    if (curPlayer.id !== myPeerId) return;
-    if (hostConn && hostConn.open) {
-      hostConn.send({ type: 'ACTION_PASS', playerId: myPeerId });
-    }
-    return;
-  }
-
-  if (currentMode === 'online' && curPlayer.id !== myPeerId) return;
-  nextTurn();
-}
-
-function nextTurn() {
-  activeTurnIndex = (activeTurnIndex + 1) % players.length;
-  resetTimer();
-  if (isHost && currentMode === 'online') {
-    broadcastState();
-  } else {
-    renderGameState();
-  }
-}
-
-// ============================================================
-// AI
-// ============================================================
-function handleAiTurn() {
-  const bot = players[activeTurnIndex];
-  if (!bot || !bot.isBot) return;
-
-  const candidates = CELEBRITY_DB.filter(c => {
-    if (chainHistory.some(item => normalizeName(item.celeb) === normalizeName(c))) return false;
-    if (targetLetter && c.toUpperCase().charAt(0) !== targetLetter) return false;
-    return true;
-  });
-
-  if (candidates.length > 0) {
-    const chosen = candidates[Math.floor(Math.random() * candidates.length)];
-    processCelebritySubmission(chosen, bot.id);
-  } else {
-    // No candidates — bot passes
-    nextTurn();
-  }
-}
-
-// ============================================================
-// TIMER
-// ============================================================
-function startTimer() {
-  clearInterval(timerInterval);
-  timerInterval = setInterval(() => {
-    timeLeft--;
-    $('timerText').innerText = `${Math.max(0, timeLeft)}s`;
-
-    if (timeLeft <= 5 && timeLeft > 0) playBeep(800, 'sine', 0.05);
-
-    // Broadcast sync each tick so guests see the countdown
-    if (isHost && currentMode === 'online') {
-      broadcastState();
-    }
-
-    if (timeLeft <= 0) {
-      playBeep(250, 'sawtooth', 0.3);
-      nextTurn();
-    }
-  }, 1000);
-}
-
-function resetTimer() {
-  clearInterval(timerInterval);
-  timeLeft = 20;
-  $('timerText').innerText = `${timeLeft}s`;
-  if (isHost || currentMode !== 'online') {
-    startTimer();
-  }
-}
-
-// ============================================================
-// GAME OVER
-// ============================================================
-function triggerGameOver(winner) {
-  clearInterval(timerInterval);
-  gameActive = false;
-  if (currentMode === 'online' && isHost) {
-    players.forEach(p => {
-      if (p.conn && p.conn.open) {
-        try { p.conn.send({ type: 'GAME_OVER', winner: { id: winner.id, name: winner.name, score: winner.score } }); } catch(e){}
-      }
-    });
-  }
-  showVictoryScreen(winner);
-}
-
-function showVictoryScreen(winner) {
-  confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-  $('winnerTitle').innerText = `${winner.name} Wins!`;
-
-  $('finalStats').innerHTML = `
-    <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Match Summary</div>
-    <div class="text-sm font-semibold text-slate-200">Total Chain Length: <b class="text-amber-300">${chainHistory.length} Celebrities</b></div>
-    <div class="text-sm font-semibold text-slate-200">Winning Score: <b class="text-amber-300">${winner.score} Points</b></div>
-  `;
-
-  showModal('winModal');
-}
-
-// ============================================================
-// RESET / NAVIGATION
-// ============================================================
-function resetToSetup() {
-  hideModal('winModal');
-  hideModal('qrModal');
-  $('gameScreen').classList.add('hidden');
-  $('lobbyBox').classList.add('hidden');
-  $('setupCard').classList.remove('hidden');
-  $('leaveBtn').classList.add('hidden');
-  $('createBox').classList.remove('hidden');
-  $('joinBox').classList.add('hidden');
-  $('joinLog').classList.add('hidden');
-  $('createRoomBtn').disabled = false;
-  $('joinRoomBtn').disabled = false;
-  $('copyInviteBtn').disabled = false;
-  $('qrBtn').disabled = false;
-
-  clearInterval(timerInterval);
-  gameActive = false;
-  aiThinking = false;
-  players = [];
-  chainHistory = [];
-  activeTurnIndex = 0;
-  targetLetter = '';
-  timeLeft = 20;
-  roomCode = null;
-  isHost = false;
-  hostConn = null;
-  hostPeerReady = false;
-
-  if (myPeer) { try { myPeer.destroy(); } catch(e){} myPeer = null; }
-  myPeerId = null;
-
-  updateStatus('ready', 'Ready');
-  updateLobbyList();
-}
-
-function leaveMatch() {
-  if (confirm("Are you sure you want to leave the match?")) {
-    // Clean up URL param
-    window.location.href = window.location.pathname;
-  }
-}
-
-function showModal(id) { $(id).classList.remove('hidden'); }
-function hideModal(id) { $(id).classList.add('hidden'); }
-</script>
-</body>
-</html>
+/* ============================================================
+   PLACEHOLDER FOR PART 2 — leave this line exactly as-is.
+   ============================================================ */
+// PART2
